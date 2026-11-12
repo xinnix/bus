@@ -1,0 +1,45 @@
+.admin-layout {
+  min-height: 100vh;
+}
+
+.admin-sider {
+  background: #001529 !important;
+}
+
+.admin-logo {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 18px;
+  color: #fff;
+}
+
+.admin-header {
+  background: #fff !important;
+  padding: 0 24px !important;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.admin-header-title {
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.admin-username {
+  margin-right: 8px;
+}
+
+.admin-avatar {
+  cursor: pointer;
+}
+
+.admin-content {
+  margin: 24px;
+  padding: 24px;
+  background: #fff;
+  border-radius: 8px;
+}

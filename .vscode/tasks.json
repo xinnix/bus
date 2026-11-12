@@ -1,0 +1,61 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "dev:all",
+      "type": "shell",
+      "command": "pnpm run dev:all",
+      "problemMatcher": []
+    },
+    {
+      "label": "dev:api",
+      "type": "shell",
+      "command": "pnpm --filter @loom/api dev",
+      "problemMatcher": []
+    },
+    {
+      "label": "dev:admin",
+      "type": "shell",
+      "command": "pnpm --filter admin dev",
+      "problemMatcher": []
+    },
+    {
+      "label": "build:all",
+      "type": "shell",
+      "command": "pnpm -r build",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "test:all",
+      "type": "shell",
+      "command": "pnpm -r test",
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "migrate",
+      "type": "shell",
+      "command": "pnpm --filter @loom/database exec prisma migrate dev",
+      "problemMatcher": []
+    },
+    {
+      "label": "sync",
+      "type": "shell",
+      "command": "pnpm run sync",
+      "problemMatcher": []
+    },
+    {
+      "label": "lint",
+      "type": "shell",
+      "command": "pnpm lint",
+      "problemMatcher": []
+    },
+    {
+      "label": "type-check",
+      "type": "shell",
+      "command": "pnpm type-check",
+      "problemMatcher": []
+    }
+  ]
+}

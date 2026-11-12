@@ -1,0 +1,125 @@
+# Multi-stage Dockerfile for API (NestJS + tRPC + Prisma)
+# 使用 pnpm deploy 解决 Monorepo 软链接问题
+
+# --- Stage 1: Base (环境准备) ---
+FROM node:22-alpine AS base
+# 启用 corepack 以使用项目指定的 pnpm 版本
+RUN corepack enable && corepack prepare pnpm@10.12.4 --activate
+WORKDIR /app
+
+# --- Stage 2: Dependencies (依赖安装) ---
+FROM base AS deps
+# 仅复制配置文件，利用 Docker 缓存层
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY apps/api/package.json ./apps/api/
+COPY infra/database/package.json ./infra/database/
+COPY infra/shared/package.json ./infra/shared/
+
+# 使用挂载缓存安装依赖，极大提升二次构建速度
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
+
+# --- Stage 3: Builder (源码编译) ---
+FROM deps AS builder
+COPY . .
+
+# 1. 生成 Prisma Client (必须在编译前，否则 TS 找不到类型)
+RUN cd infra/database && npx prisma generate
+
+# 2. 编译 shared 包（API 依赖于 shared 的编译产物）
+RUN pnpm --filter @loom/shared build
+
+# 3. 编译 API 项目
+RUN pnpm --filter @loom/api build
+
+# --- Stage 4: Deployer (生产环境提取) ---
+FROM node:22-alpine AS deployer
+WORKDIR /app
+
+# 启用 corepack
+RUN corepack enable && corepack prepare pnpm@10.12.4 --activate
+
+# 复制整个 workspace 结构（pnpm deploy 需要完整的环境）
+COPY --from=builder /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
+COPY --from=builder /app/pnpm-lock.yaml ./pnpm-lock.yaml
+COPY --from=builder /app/package.json ./package.json
+
+# 复制所有包的 package.json（依赖分析需要）
+COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
+COPY --from=builder /app/infra/database/package.json ./infra/database/package.json
+COPY --from=builder /app/infra/shared/package.json ./infra/shared/package.json
+
+# 复制 node_modules 用于依赖解析
+COPY --from=builder /app/node_modules ./node_modules
+
+# 在完整 workspace 环境中运行 pnpm deploy
+# 使用 --legacy 标志以确保正确处理 workspace 依赖
+# 不使用 --prod 标志，确保包含运行时必需的 peer dependencies（如 express）
+# 这会分析 @loom/api 的所有依赖（包括 workspace 依赖）
+# 并创建一个包含所有必要生产依赖的独立目录
+RUN pnpm deploy --filter @loom/api --legacy /out
+
+# --- Stage 5: Runner (最终运行镜像) ---
+FROM node:22-alpine AS runner
+WORKDIR /app
+
+# ===== 时区配置（关键修复）=====
+# 设置时区为北京时间（Asia/Shanghai）
+# 解决所有 DateTime 字段（createdAt, updatedAt 等）的时间偏差问题
+ENV TZ=Asia/Shanghai
+RUN apk add --no-cache tzdata && \
+    ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
+    echo "Asia/Shanghai" > /etc/timezone && \
+    apk del tzdata  # 安装后可删除以减小镜像体积（软链接已生效）
+
+# 验证时区设置
+RUN date && echo "Timezone set to: $TZ"
+
+# 1. 从 deployer 阶段拷贝 pnpm deploy 的输出（包含 node_modules 和配置文件）
+# pnpm deploy 会将整个包的内容输出到指定目录，但不包含编译产物和 workspace 源文件
+COPY --from=deployer /out/package.json ./package.json
+COPY --from=deployer /out/node_modules ./node_modules
+
+# 2. 从 builder 阶段拷贝编译后的产物（pnpm deploy 不会包含编译文件）
+COPY --from=builder /app/apps/api/dist ./dist
+
+# 2.5 变更日志（ADR-010：文件真理源，运行时由 ChangelogReader 读取 /app/CHANGELOG.md）
+COPY --from=builder /app/CHANGELOG.md ./CHANGELOG.md
+
+# 3. 拷贝完整的 Prisma Schema 以便在生产环境运行迁移（必须在 node_modules 拷贝前）
+# 包含 migrations 目录，用于 prisma migrate deploy
+COPY --from=builder /app/infra/database ./infra/database
+
+# 4. 手动补充 @loom/database 包的缺失文件到 node_modules
+# pnpm deploy 不会复制 workspace 包的源文件和编译产物
+# 注意：这些拷贝不会影响上面的 /app/infra/database 目录
+COPY --from=builder /app/infra/database/index.cjs ./node_modules/@loom/database/index.cjs
+COPY --from=builder /app/infra/database/index.d.ts ./node_modules/@loom/database/index.d.ts
+COPY --from=builder /app/infra/database/prisma ./node_modules/@loom/database/prisma
+COPY --from=builder /app/infra/database/prisma.config.ts ./node_modules/@loom/database/prisma.config.ts
+COPY --from=builder /app/infra/database/generated ./node_modules/@loom/database/generated
+
+# 5. 手动补充 @loom/shared 包的编译产物
+# API 运行时需要 shared 的编译产物
+COPY --from=builder /app/infra/shared/dist ./node_modules/@loom/shared/dist
+
+# 6. 确保 Prisma CLI 可用（简化版）
+# pnpm deploy 已经包含了完整的 prisma 和 @prisma/engines
+# 只需要创建 node_modules/.bin 软链接（如果不存在）
+RUN mkdir -p /app/node_modules/.bin && \
+    PRISMA_CLI=$(find /app/node_modules/.pnpm -name "index.js" -path "*/prisma/build/*" 2>/dev/null | head -1) && \
+    if [ -n "$PRISMA_CLI" ]; then \
+      ln -sf "$PRISMA_CLI" /app/node_modules/.bin/prisma && \
+      echo "✅ Prisma CLI linked: $PRISMA_CLI"; \
+    fi
+
+# 7. 创建证书目录（用于微信支付证书）
+# 注意：证书文件不会包含在镜像中，需要通过 volume 挂载或 Docker secrets 提供
+RUN mkdir -p /app/certs
+
+# 8. 拷贝启动脚本（终极优化版）
+# 特性：数据库预检查、多级CLI查找、跳过迁移支持、快速失败
+COPY apps/api/entrypoint-final.sh ./entrypoint.sh
+RUN chmod +x ./entrypoint.sh
+
+EXPOSE 3000
+ENTRYPOINT ["./entrypoint.sh"]

@@ -1,0 +1,42 @@
+import uni from '@uni-helper/eslint-config';
+import prettier from 'eslint-config-prettier';
+
+// 格式类规则统一交给 prettier。注意：uni-helper 的 config 用 @stylistic 插件
+// 抢注了 style/ 命名空间，eslint-config-prettier 关闭的是 core 同名规则而失效，
+// 故此处显式关闭实际生效的风格规则（与 prettier 职责重叠者）。
+// 注：uni() 返回 Promise，需在其 resolve 后展开为扁平 config 数组返回。
+// yml 规则（eslint-plugin-yml）使用了 eslint 10 移除的 SourceCode API 会崩溃，
+// 且 yaml 不在本包 lint 关注点内，一并忽略。
+export default uni({
+  unocss: true,
+  ignores: ['**/*.md', '**/*.yml', '**/*.yaml', '**/static/iconfont/**'],
+}).then((config) => [
+  ...(Array.isArray(config) ? config : [config]),
+  {
+    rules: {
+      'perfectionist/sort-imports': 'off',
+      'style/semi': 'off',
+      'style/quotes': 'off',
+      'style/comma-dangle': 'off',
+      'style/member-delimiter-style': 'off',
+      'style/arrow-parens': 'off',
+      'style/brace-style': 'off',
+      'style/indent': 'off',
+      'style/indent-binary-ops': 'off',
+      'style/no-extra-semi': 'off',
+      'style/quote-props': 'off',
+      'style/operator-linebreak': 'off',
+      'antfu/if-newline': 'off',
+      // 小程序真机调试依赖 console 输出，放宽为 warning（warn/error 仍可用）
+      'no-console': 'warn',
+    },
+  },
+  {
+    // 构建配置正常使用 node 全局（如 process.cwd()）
+    files: ['**/vite.config.ts'],
+    rules: {
+      'node/prefer-global/process': 'off',
+    },
+  },
+  prettier,
+]);

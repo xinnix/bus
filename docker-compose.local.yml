@@ -1,0 +1,51 @@
+# Docker Compose for Local Production
+# 使用本地构建的镜像进行测试
+#
+# 注意：此配置不包含 PostgreSQL，需要连接外部数据库
+# 请在 .env.prod 中配置 DATABASE_URL
+
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    image: ${PROJECT_NAME:-loom}-api:v1-local
+    container_name: ${PROJECT_NAME:-loom}-api-local
+    ports:
+      - '3000:3000'
+    env_file:
+      - .env.prod
+    restart: unless-stopped
+
+  admin:
+    image: ${PROJECT_NAME:-loom}-admin:v1-local
+    container_name: ${PROJECT_NAME:-loom}-admin-local
+    profiles: [admin]
+    ports:
+      - '8081:80'
+    env_file:
+      - .env.prod
+    environment:
+      VITE_API_URL: http://localhost:3000/trpc
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    image: ${PROJECT_NAME:-loom}-web:v1-local
+    container_name: ${PROJECT_NAME:-loom}-web-local
+    profiles: [web]
+    ports:
+      - '3002:3002'
+    env_file:
+      - .env.prod
+    environment:
+      NEXT_PUBLIC_API_URL: http://api:3000
+    depends_on:
+      - api
+    restart: unless-stopped

@@ -1,0 +1,80 @@
+# Docker Compose for Production
+# Usage: docker-compose -f docker-compose.prod.yml --env-file .env.prod up -d
+#
+# 生产环境部署配置
+# - 连接外部 PostgreSQL 数据库
+# - 包含健康检查和自动重启
+# - 日志和资源限制配置
+
+version: '3.8'
+
+services:
+  api:
+    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-loom}-api:${TAG:-latest}
+    container_name: ${PROJECT_NAME:-loom}-api-prod
+    env_file:
+      - .env.prod
+    environment:
+      - TZ=Asia/Shanghai
+    ports:
+      - '${API_PORT:-3001}:3000'
+    volumes:
+      # 微信支付证书文件
+      # 宿主机证书目录映射到容器内 /app/certs
+      # .env.prod 中配置：
+      # WX_PAY_PRIVATE_KEY_PATH=/app/certs/apiclient_key.pem
+      # WX_PAY_PUBLIC_KEY_PATH=/app/certs/wechatpay_public_key.pem
+      - ./certs:/app/certs:ro
+    restart: unless-stopped
+    networks:
+      - app-network
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+  admin:
+    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-loom}-admin:${TAG:-latest}
+    container_name: ${PROJECT_NAME:-loom}-admin-prod
+    profiles: [admin]
+    env_file:
+      - .env.prod
+    environment:
+      - TZ=Asia/Shanghai
+    ports:
+      - '${ADMIN_PORT:-8081}:80'
+    depends_on:
+      - api
+    networks:
+      - app-network
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+  web:
+    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-loom}-web:${TAG:-latest}
+    container_name: ${PROJECT_NAME:-loom}-web-prod
+    profiles: [web]
+    env_file:
+      - .env.prod
+    environment:
+      - TZ=Asia/Shanghai
+    ports:
+      - '${WEB_PORT:-3002}:3002'
+    depends_on:
+      - api
+    networks:
+      - app-network
+    restart: unless-stopped
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+networks:
+  app-network:
+    driver: bridge

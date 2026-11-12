@@ -1,0 +1,10 @@
+node_modules
+dist
+.prisma
+generated
+pnpm-lock.yaml
+*.min.js
+next-env.d.ts
+apps/miniapp/src/manifest.json
+apps/miniapp/src/pages.json
+apps/miniapp/src/static/iconfont/

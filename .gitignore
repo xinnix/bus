@@ -1,0 +1,72 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+apps/**/node_modules/
+apps/**/uni_modules/
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.prod
+
+# Prisma
+infra/database/generated/
+
+# IDE
+# .vscode/ — checked in for workspace recommendations
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Vite
+.vite/
+
+# Testing
+coverage/
+
+# Misc
+.cache/
+.temp/
+.playwright-mcp/
+
+# Database backups
+backups/
+
+# File uploads
+uploads/
+
+# WeChat Pay certificates (sensitive)
+*.pem
+!certs/.gitkeep
+!certs/README.md
+
+# Claude Code hooks
+.claude/logs/
+.claude/backups/
+
+# Test / Landing verification artifacts
+test-loom/
+landing-*.png
+landing-*.txt
+apps/e2e/test-results/

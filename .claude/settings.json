@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(pnpm -C :*)",
+      "Bash(pnpm run :*)",
+      "Bash(pnpm test:*)",
+      "Bash(pnpm lint:*)",
+      "Bash(cd :*)",
+      "Bash(npx prisma:*)",
+      "Bash(npx prisma migrate dev:*)",
+      "Bash(npx prisma generate:*)",
+      "Bash(npx prisma studio:*)",
+      "Bash(npx jest:*)",
+      "Bash(npx eslint:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx prettier:*)",
+      "Bash(npx tsx :*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git status)",
+      "Bash(git diff)",
+      "Bash(git log)",
+      "Bash(git branch)",
+      "Bash(git checkout)",
+      "Bash(git ls-tree)",
+      "Bash(chmod +x :*)",
+      "Bash(mkdir -p :*)",
+      "Bash(test -d :*)",
+      "Bash(test -f :*)",
+      "Bash(docker exec:*)",
+      "Bash(lsof -i:*)",
+      "Bash(kill :*)",
+      "Bash(wc -l :*)",
+      "Bash(head :*)",
+      "Bash(tail :*)",
+      "mcp__exa__web_search_exa",
+      "mcp__exa__web_fetch_exa",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__query-docs",
+      "mcp__zread__get_repo_structure",
+      "mcp__zread__read_file",
+      "mcp__zread__search_doc",
+      "mcp__web-reader__webReader",
+      "mcp__memory__create_entities",
+      "mcp__memory__create_relations",
+      "mcp__memory__add_observations",
+      "mcp__memory__search_nodes",
+      "mcp__memory__open_nodes",
+      "mcp__memory__read_graph",
+      "mcp__memory__delete_entities",
+      "mcp__memory__delete_relations",
+      "mcp__memory__delete_observations",
+      "WebSearch",
+      "LSP"
+    ],
+    "deny": [
+      "Bash(rm -rf :*)",
+      "Bash(git push --force *)",
+      "Bash(git reset --hard *)",
+      "Bash(npx prisma db push *)",
+      "Bash(curl * | bash*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"$(git rev-parse --show-toplevel)/.claude/hooks/protect-migration.sh\""
+          },
+          {
+            "type": "command",
+            "command": "sh \"$(git rev-parse --show-toplevel)/.claude/hooks/protect-env.sh\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"$(git rev-parse --show-toplevel)/.claude/hooks/after-edit.sh\""
+          },
+          {
+            "type": "command",
+            "command": "sh \"$(git rev-parse --show-toplevel)/.claude/hooks/schema-change.sh\""
+          },
+          {
+            "type": "command",
+            "command": "sh \"$(git rev-parse --show-toplevel)/.claude/hooks/shared-change.sh\""
+          },
+          {
+            "type": "command",
+            "command": "sh \"$(git rev-parse --show-toplevel)/.claude/hooks/type-check.sh\""
+          },
+          {
+            "type": "command",
+            "command": "sh \"$(git rev-parse --show-toplevel)/.claude/hooks/run-tests.sh\""
+          },
+          {
+            "type": "command",
+            "command": "sh \"$(git rev-parse --show-toplevel)/.claude/hooks/sync-agents.sh\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"$(git rev-parse --show-toplevel)/.claude/hooks/stop.sh\""
+          }
+        ]
+      }
+    ]
+  }
+}

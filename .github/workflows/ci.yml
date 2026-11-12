@@ -1,0 +1,340 @@
+name: CI / Deploy
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Deploy image tag (default: latest)'
+        default: 'latest'
+        required: false
+      deploy:
+        description: 'Deploy to server'
+        default: 'yes'
+        required: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME_API: ${{ github.repository }}-api
+  IMAGE_NAME_ADMIN: ${{ github.repository }}-admin
+  IMAGE_NAME_WEB: ${{ github.repository }}-web
+  VITE_API_URL: /trpc
+
+jobs:
+  parse-config:
+    runs-on: ubuntu-latest
+    outputs:
+      apps: ${{ steps.read.outputs.APPS }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: read
+        run: |
+          if [ -f .scaffold-config.json ]; then
+            # 兼容包装格式 {"apps":[...]} 与历史裸数组 [...]（init-project.sh 旧版产物）
+            echo "APPS=$(jq -c 'if type == "array" then . else (.apps // []) end' .scaffold-config.json)" >> "$GITHUB_OUTPUT"
+          else
+            echo 'APPS=["api","admin","web"]' >> "$GITHUB_OUTPUT"
+          fi
+
+  migration-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check migration consistency
+        run: |
+          if git diff --name-only origin/main HEAD -- infra/database/prisma/schema.prisma | grep -q .; then
+            CHANGED=$(git diff --name-only origin/main HEAD -- infra/database/prisma/migrations/ 2>/dev/null || true)
+            if [ -z "$CHANGED" ]; then
+              echo "❌ schema.prisma 已修改但未提交迁移文件！"
+              echo "   请运行: cd infra/database && npx prisma migrate dev"
+              exit 1
+            fi
+            echo "✅ Schema 变更已有对应迁移文件"
+          else
+            echo "⏭️  schema.prisma 未变更，跳过检查"
+          fi
+
+  type-check:
+    runs-on: ubuntu-latest
+    needs: migration-check
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Type Check
+        run: pnpm --filter @loom/shared build && pnpm --filter @loom/database generate && pnpm type-check
+
+  lint:
+    runs-on: ubuntu-latest
+    needs: type-check
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm --filter !@loom/miniapp lint
+
+      - name: Format check
+        run: pnpm format:check
+
+  test:
+    runs-on: ubuntu-latest
+    needs: [type-check, lint]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build shared package
+        run: pnpm --filter @loom/shared build
+
+      - name: Generate Prisma Client
+        run: pnpm --filter @loom/database exec prisma generate
+
+      - name: Run tests
+        # e2e 需要全栈服务环境，已拆到独立 workflow（e2e.yml，手动触发）
+        run: pnpm --filter !@loom/miniapp --filter !@loom/e2e test
+
+  security-audit:
+    runs-on: ubuntu-latest
+    needs: [type-check, lint, test]
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Dependency audit
+        run: pnpm audit --audit-level moderate
+        continue-on-error: true
+
+  build-and-push:
+    needs: [type-check, lint, test, parse-config]
+    if: needs.parse-config.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Docker metadata for API
+        id: meta-api
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_API }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Docker metadata for Admin
+        id: meta-admin
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_ADMIN }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Docker metadata for Web
+        id: meta-web
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_WEB }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push API image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.api
+          push: true
+          tags: ${{ steps.meta-api.outputs.tags }}
+          labels: ${{ steps.meta-api.outputs.labels }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+      - name: Build and push Admin image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.admin
+          push: true
+          tags: ${{ steps.meta-admin.outputs.tags }}
+          labels: ${{ steps.meta-admin.outputs.labels }}
+          target: production
+          build-args: |
+            VITE_API_URL=${{ env.VITE_API_URL }}
+          cache-from: type=gha,scope=admin
+          cache-to: type=gha,mode=max,scope=admin
+
+      - name: Build and push Web image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.web
+          push: true
+          tags: ${{ steps.meta-web.outputs.tags }}
+          labels: ${{ steps.meta-web.outputs.labels }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [build-and-push, parse-config]
+    if: >
+      github.event_name == 'push'
+      || (github.event_name == 'workflow_dispatch' && inputs.deploy != 'skip')
+    steps:
+      - name: Check deploy secrets
+        id: check
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          if [ -z "$HOST" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "⚠️  DEPLOY_HOST not configured, skipping deployment"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "✅ Deploy secrets configured"
+          fi
+
+      - name: Deploy via SSH
+        if: steps.check.outputs.skip != 'true'
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          script: |
+            set -e
+            PROJ_DIR=${{ secrets.DEPLOY_PATH }}
+            TAG=${{ inputs.tag || 'latest' }}
+            APPS='${{ needs.parse-config.outputs.apps }}'
+
+            cd "$PROJ_DIR"
+
+            echo "🚀 Pulling images (TAG=$TAG, apps=$APPS)..."
+            TAG=$TAG docker compose -f docker-compose.prod.yml pull
+
+            for app in $(echo "$APPS" | jq -r '.[]'); do
+              echo "🔁 Restart: $app..."
+              TAG=$TAG docker compose -f docker-compose.prod.yml up -d --no-deps "$app"
+            done
+
+            echo "🧹 Cleaning up old images..."
+            docker image prune -af --filter "until=24h"
+
+            echo "✅ Deploy complete (TAG=$TAG)"
+            docker compose -f docker-compose.prod.yml ps
+
+      - name: Deployment summary
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**VITE_API_URL:** \`${{ env.VITE_API_URL }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Enabled apps:** \`${{ needs.parse-config.outputs.apps }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Docker images pulled:**" >> $GITHUB_STEP_SUMMARY
+          for app in $(echo '${{ needs.parse-config.outputs.apps }}' | jq -r '.[]'); do
+            IMG=$(echo "${{ env.REGISTRY }}/${{ github.repository }}-${app}:${{ inputs.tag || 'latest' }}")
+            echo "- \`${IMG}\`" >> $GITHUB_STEP_SUMMARY
+          done
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+      - name: Extra metadata for API image
+        run: |
+          echo "### API Image" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.meta-api.outputs.tags }}" | tr ' ' '\n' | sed 's/^/docker pull /' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+      - name: Extra metadata for Admin image
+        run: |
+          echo "### Admin Image" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.meta-admin.outputs.tags }}" | tr ' ' '\n' | sed 's/^/docker pull /' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+      - name: Extra metadata for Web image
+        run: |
+          echo "### Web Image" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.meta-web.outputs.tags }}" | tr ' ' '\n' | sed 's/^/docker pull /' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
