@@ -10,6 +10,11 @@
 
 - 管理端数据看板（登录落地页 `/dashboard`）：新增 `dashboard.stats` tRPC（`order:read` 权限）输出今日收款/订单/核销/发车班次/新增用户与用户/订单/收款/线路累计，「今日」按服务器本地时区零点起算（班次按 `serviceDate` 当日比对）；页面为 9 张指标卡 + 最近 8 笔订单表，侧边栏「票务管理」首项新增「数据看板」，登录后跳转与 `/` 默认重定向统一指向 `/dashboard`；含 router 单测（3 例）
 
+### 变更
+
+- P0 试点部署完成回写（ROADMAP / 任务文档）：公网探活验证生产链路——admin 站 200、API 返回线路数据、支付回调端点对无效签名应答 FAIL（路由与验签在线，非 404）、admin `/trpc` 代理应答 tRPC 错误帧；小程序生产包已构建（`dist/build/mp-weixin`，API 域名烘入）待传体验版
+- `apps/miniapp/.env.production` 注释同步事实：`chuxing-api.classmaster.cn` 已由生产 1Panel 反代接管（原「frp 公网隧道」表述过时）
+
 ## [1.4.0] - 2026-11-13
 
 ### 新增
