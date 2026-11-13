@@ -14,7 +14,7 @@
 ### 变更
 
 - 小程序生产构建 API 域名落地：`apps/miniapp/.env.production` 的 `VITE_API_BASE_URL` 由占位符 `api.example.com` 改为正式域名 `https://chuxing-api.classmaster.cn`（frp 公网隧道，HTTPS 证书已验证）。小程序正式版发布前需在微信公众平台「request 合法域名」配置该主机（域名需 ICP 备案）
-- 生产编排 `docker-compose.prod.yml` 对齐服务器同机部署：镜像名修正为 CI 实际推送的 `ghcr.io/xinnix/bus-{api,admin,web}`（服务器经 ghcr.1ms.run 加速拉取）；web 替代原 landing 服务并注入 `API_UPSTREAM_URL=http://api:3000`（Next 服务端 auth 上游）；宿主端口与 wesale 错开（api 3010 / web 3011 / admin 8082）；api 加入 external `1panel-network` 复用 1Panel 同套 PostgreSQL/Redis；移除 admin/web 的 profiles（默认随编排全量拉起）与废弃的 `version` 字段；`.env.prod.example` 端口/数据库/Redis 说明同步
+- 服务端部署收敛为 api + admin 双服务（H5 不单独部署，用户端仅小程序）：`docker-compose.prod.yml` 对齐服务器同机部署——镜像经 ghcr.1ms.run 加速拉取 `xinnix/bus-{api,admin}`，宿主端口与 wesale 错开（api 3010 / admin 8082），api 加入 external `1panel-network` 复用 1Panel 同套 PostgreSQL/Redis，保留 certs/uploads 卷，头部注明边缘反代路由契约；CI 移除写死的 web 镜像构建步骤（`.scaffold-config.json` 本就未启用 web）；移除废弃的 `version` 字段；`.env.prod.example` 端口/数据库/Redis 说明同步
 
 ## [1.3.2] - 2026-11-13
 
