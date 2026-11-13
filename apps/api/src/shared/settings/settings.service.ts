@@ -6,7 +6,7 @@ import {
   SETTING_KEY_ALIASES,
   type SettingFieldDef,
   type SettingFieldView,
-} from '@loom/shared';
+} from '@sanqin/shared';
 
 interface CachedSetting {
   value: string;

@@ -5,7 +5,6 @@ import { usePathname } from 'next/navigation';
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: '仪表盘', icon: '🏠' },
-  { href: '/todos', label: '待办事项', icon: '✅' },
   { href: '/ai/chat', label: 'AI 助手', icon: '🤖' },
   { href: '/profile', label: '个人中心', icon: '👤' },
 ];
@@ -17,7 +16,7 @@ export function Sidebar() {
     <aside className="hidden w-60 shrink-0 border-r border-neutral-200 bg-white md:block">
       <div className="flex h-14 items-center px-6">
         <Link href="/dashboard" className="text-lg font-bold text-brand-600">
-          Roundtable
+          三秦巴士
         </Link>
       </div>
       <nav className="mt-4 space-y-1 px-3">

@@ -1,4 +1,4 @@
-import { CreateAgentTriggerSchema, Permission, UpdateAgentTriggerSchema } from '@loom/shared';
+import { CreateAgentTriggerSchema, Permission, UpdateAgentTriggerSchema } from '@sanqin/shared';
 import { z } from 'zod';
 import { createCrudRouterWithCustom } from '../../../trpc/trpc.helper';
 import { permissionProcedure } from '../../../trpc/trpc';

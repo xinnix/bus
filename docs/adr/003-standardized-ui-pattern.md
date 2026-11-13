@@ -65,4 +65,4 @@ columns + formComponent → StandardListPage → 列表 + CRUD Modal
 
 - `FieldDefinition` 持续扩展字段类型（颜色选择器、JSON 编辑器）
 - `StandardDetailPage` 增加更多的内联操作支持
-- 考虑将三个组件的配置接口移动到 `@loom/shared` 包，供 genModule 模板引用
+- 考虑将三个组件的配置接口移动到 `@sanqin/shared` 包，供 genModule 模板引用

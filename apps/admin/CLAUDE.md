@@ -63,4 +63,4 @@ src/
 - UI 组件：优先使用 Ant Design 现有组件，不引入额外 UI 库
 - 数据获取：优先使用 Refine `useTable`/`useOne`/`useCreate` 等 Hook，不直接调用 tRPC Client
 - tRPC Client：仅在 Refine Hook 不足以表达时才直接调用（如自定义查询、权限管理）
-- 本包依赖：优先使用 Monorepo 工作区互引的 `@loom/shared` 类型
+- 本包依赖：优先使用 Monorepo 工作区互引的 `@sanqin/shared` 类型

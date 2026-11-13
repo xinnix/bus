@@ -8,8 +8,13 @@ import { roleRouter } from '../modules/role/trpc/role.router';
 import { permissionRouter } from '../modules/permission/trpc/permission.router';
 import { uploadRouter } from '../modules/upload/trpc/upload.router';
 import { paymentRouter } from '../modules/payment/trpc/payment.router';
+import { lineRouter } from '../modules/line/line.router';
+import { stationRouter } from '../modules/station/station.router';
+import { scheduleTemplateRouter, tripRouter } from '../modules/schedule/schedule.router';
+import { orderRouter } from '../modules/order/order.router';
+import { checkinRouter } from '../modules/checkin/checkin.router';
+import { checkerRouter } from '../modules/checkin/checker.router';
 import { wecomRouter } from '../modules/wecom/trpc/wecom.router';
-import { todoRouter } from '../modules/todo/trpc/todo.router';
 import { settingsRouter } from '../modules/settings/trpc/settings.router';
 import { changelogRouter } from '../modules/changelog/trpc/changelog.router';
 
@@ -21,8 +26,14 @@ export const appRouter = router({
   permission: permissionRouter,
   upload: uploadRouter,
   payment: paymentRouter,
+  line: lineRouter,
+  station: stationRouter,
+  scheduleTemplate: scheduleTemplateRouter,
+  trip: tripRouter,
+  order: orderRouter,
+  checkin: checkinRouter,
+  checker: checkerRouter,
   wecom: wecomRouter,
-  todo: todoRouter,
   settings: settingsRouter,
   changelog: changelogRouter,
 });

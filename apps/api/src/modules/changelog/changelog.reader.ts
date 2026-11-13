@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { Logger } from '@nestjs/common';
-import { ChangelogEntrySchema, type ChangelogEntry, type ChangelogType } from '@loom/shared';
+import { ChangelogEntrySchema, type ChangelogEntry, type ChangelogType } from '@sanqin/shared';
 
 /**
  * CHANGELOG.md 读取与解析（ADR-010：文件真理源，管理端只读展示）。

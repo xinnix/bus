@@ -10,6 +10,16 @@ import { LoginPage, SessionExpiredPage, NotFoundPage } from './modules/auth';
 import { AdminLayout } from './shared/layouts';
 import { AdminListPage, AdminDetailPage } from './modules/admin';
 import { UserListPage, UserDetailPage } from './modules/user';
+import {
+  LineListPage,
+  StationListPage,
+  ScheduleTemplateListPage,
+  TripListPage,
+  OrderListPage,
+  OrderDetailPage,
+  CheckinListPage,
+  CheckerListPage,
+} from './modules/ticketing';
 import { RoleListPage, RoleDetailPage } from './modules/role';
 import {
   LlmConfigListPage,
@@ -21,7 +31,6 @@ import {
   AgentTriggerListPage,
 } from './modules/ai';
 import { WecomConfigListPage, WecomMessageListPage, WecomEventListPage } from './modules/wecom';
-import { TodoListPage, TodoDetailPage } from './modules/todo';
 import { SettingsPage } from './modules/settings';
 import { ChangelogPage } from './modules/changelog';
 import { useMessageInitializer } from './shared/hooks/useMessageInitializer';
@@ -70,6 +79,13 @@ function AppContent() {
           },
         }}
         resources={[
+          { name: 'line', list: '/lines' },
+          { name: 'station', list: '/stations' },
+          { name: 'scheduleTemplate', list: '/schedule-templates' },
+          { name: 'trip', list: '/trips' },
+          { name: 'order', list: '/orders', show: '/orders/:id' },
+          { name: 'checkin', list: '/checkins' },
+          { name: 'checker', list: '/checkers' },
           { name: 'user', list: '/users' },
           { name: 'admin', list: '/admins' },
           { name: 'role', list: '/roles' },
@@ -81,14 +97,21 @@ function AppContent() {
           { name: 'wecom.config', list: '/wecom' },
           { name: 'wecom.message', list: '/wecom/messages' },
           { name: 'wecom.event', list: '/wecom/events' },
-          { name: 'todo', list: '/todos' },
         ]}
       >
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/unauthorized" element={<SessionExpiredPage />} />
           <Route path="/" element={<AdminLayout />}>
-            <Route index element={<Navigate to="/users" replace />} />
+            <Route index element={<Navigate to="/lines" replace />} />
+            <Route path="lines" element={<LineListPage />} />
+            <Route path="stations" element={<StationListPage />} />
+            <Route path="schedule-templates" element={<ScheduleTemplateListPage />} />
+            <Route path="trips" element={<TripListPage />} />
+            <Route path="orders" element={<OrderListPage />} />
+            <Route path="orders/:id" element={<OrderDetailPage />} />
+            <Route path="checkins" element={<CheckinListPage />} />
+            <Route path="checkers" element={<CheckerListPage />} />
             <Route path="users" element={<UserListPage />} />
             <Route path="users/:id" element={<UserDetailPage />} />
             <Route path="roles" element={<RoleListPage />} />
@@ -105,8 +128,6 @@ function AppContent() {
             <Route path="wecom" element={<WecomConfigListPage />} />
             <Route path="wecom/messages" element={<WecomMessageListPage />} />
             <Route path="wecom/events" element={<WecomEventListPage />} />
-            <Route path="todos" element={<TodoListPage />} />
-            <Route path="todos/:id" element={<TodoDetailPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="changelog" element={<ChangelogPage />} />
           </Route>

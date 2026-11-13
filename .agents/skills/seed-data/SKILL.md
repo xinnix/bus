@@ -178,5 +178,5 @@ docker exec -i postgres psql -U xinnix -c "CREATE DATABASE loom;"
 
 ```bash
 # 运行数据库迁移
-pnpm --filter @loom/database prisma migrate dev
+pnpm --filter @sanqin/database prisma migrate dev
 ```

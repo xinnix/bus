@@ -14,7 +14,7 @@ M3 收尾双项。完成后 M3 关闭、进入 M4（运行时 AI 演进）。
 - [x] 侦察：api 开 strict 仅 2 错（@types/pg 双版本冲突，卸载即愈）；admin 真实 24 错（root references 模式此前不真查）
 - [x] api tsconfig 开启 strict 全绿（顺手开 declaration 供类型桥使用）
 - [x] admin tsconfig（app/node）开启 strict，修复 24 处类型错误（refine v5 返回结构、Record<boolean> 索引、闭包收窄丢失、AntD 规则类型等）
-- [x] `AppRouter = unknown` → 经 workspace 包（@loom/api devDep + dist d.ts）引用真实类型，tRPC 端到端类型打通
+- [x] `AppRouter = unknown` → 经 workspace 包（@sanqin/api devDep + dist d.ts）引用真实类型，tRPC 端到端类型打通
 - [x] scripts/type-check.sh 的 admin 检查改 `tsc -b`（原 `tsc --noEmit` 对 references 不真查）
 
 ### E4 genModule 生成扩展（重定界后）
@@ -50,6 +50,6 @@ M3 收尾双项。完成后 M3 关闭、进入 M4（运行时 AI 演进）。
 
 ## 变更文件清单
 
-（E2 部分）apps/api/tsconfig.json + package.json（strict/declaration/types 入口）、apps/admin/tsconfig.*.json + package.json（strict + @loom/api devDep）、src/types/api.ts（真实 AppRouter）、App.tsx / AdminDetailPage / RoleDetailPage / UserDetail / UserListPage / StandardForm×2 / StandardListPage / trpcClient / dataProvider（24 处类型修复）、scripts/type-check.sh、pnpm-lock.yaml
+（E2 部分）apps/api/tsconfig.json + package.json（strict/declaration/types 入口）、apps/admin/tsconfig.*.json + package.json（strict + @sanqin/api devDep）、src/types/api.ts（真实 AppRouter）、App.tsx / AdminDetailPage / RoleDetailPage / UserDetail / UserListPage / StandardForm×2 / StandardListPage / trpcClient / dataProvider（24 处类型修复）、scripts/type-check.sh、pnpm-lock.yaml
 
 （E4 部分）.claude/skills/genModule/scripts/generate-module.ts（targets 简化为 --no-rest、REST controller/DetailPage/Web client 三生成器、buildEnumDicts、--fields/--meta CLI、dry-run/checkModuleExists 增强、锚点修复、null 安全渲染、行操作补全）、.claude/skills/deleteModule/delete-module.ts（7 处清理缺口 + 移除正则精确化）、.claude/skills/genModule/SKILL.md（产物清单/编排流程/Checklist/CLI）、.claude/skills/genModule/references/rest-layer.md（重写）、references/frontend-templates.md（过期声明）、docs/product/prd.md（F3+D7）、docs/ROADMAP.md（M3 措辞）、docs/product/backlog.md（E4 条目）

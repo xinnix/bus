@@ -61,7 +61,7 @@ export class WechatPayService implements OnModuleInit {
     this.sandbox = this.configService.get<string>('WX_PAY_SANDBOX') === 'true';
   }
 
-  onModuleInit() {
+  async onModuleInit() {
     if (!this.appId || !this.mchId || !this.apiKey || !this.serialNo) {
       this.logger.warn(
         '微信支付配置不完整（缺少 WX_PAY_APP_ID / WX_PAY_MCH_ID / WX_PAY_API_KEY / WX_PAY_SERIAL_NO），支付功能将不可用',
@@ -94,6 +94,12 @@ export class WechatPayService implements OnModuleInit {
       this.logger.log(
         `微信支付 V3 初始化成功 | 商户号: ${this.mchId} | 沙箱: ${this.sandbox} | 验签模式: 微信支付公钥（推荐）`,
       );
+
+      // 部分商户/接口的应答与回调以「平台证书」序列号签名（Wechatpay-Serial 为 40 位 HEX），
+      // 公钥序列号无法验签，这里自动下载平台证书一并注册
+      await this.refreshPlatformCertificates(privateKey, publicKeyId, publicKey).catch((error) => {
+        this.logger.warn(`平台证书下载失败（回调若使用平台证书签名将无法验签）: ${error?.message}`);
+      });
     } else {
       // 未配置微信支付公钥，支付功能不可用
       this.logger.warn(
@@ -102,6 +108,62 @@ export class WechatPayService implements OnModuleInit {
       this.logger.warn(`请参考文档配置微信支付公钥: docs/product/prd.md (F5 微信支付)`);
       return;
     }
+  }
+
+  /**
+   * 下载微信支付「平台证书」并注册进验签 certs。
+   * 背景：/v3/certificates 的应答本身无法被插件验签（鸡生蛋），
+   * 因此用商户私钥手动构造签名请求直连微信，应答用 APIv3 密钥解密出证书。
+   * 注册方式：携带公钥 + 平台证书重建 Wechatpay 实例。
+   */
+  private async refreshPlatformCertificates(
+    merchantPrivateKey: Buffer,
+    publicKeyId: string,
+    publicKey: Buffer,
+  ) {
+    const method = 'GET';
+    const uri = '/v3/certificates';
+    const timestamp = Formatter.timestamp();
+    const nonce = Formatter.nonce();
+    const signature = Rsa.sign(
+      Formatter.request(method, uri, timestamp, nonce),
+      merchantPrivateKey,
+    );
+    const authorization = Formatter.authorization(
+      this.mchId,
+      nonce,
+      signature,
+      timestamp,
+      this.serialNo,
+    );
+
+    const axios = (await import('axios')).default;
+    const res = await axios.get(`https://api.mch.weixin.qq.com${uri}`, {
+      headers: { Authorization: authorization, Accept: 'application/json' },
+      timeout: 10000,
+    });
+
+    const certs: Record<string, Buffer> = {
+      [publicKeyId]: publicKey,
+    };
+    for (const item of res?.data?.data ?? []) {
+      const pem = Aes.AesGcm.decrypt(
+        item.encrypt_certificate.ciphertext,
+        this.apiKey,
+        item.encrypt_certificate.nonce,
+        item.encrypt_certificate.associated_data,
+      );
+      certs[item.serial_no] = Buffer.from(pem, 'utf8');
+    }
+
+    const platformSerials = Object.keys(certs).filter((k) => k !== publicKeyId);
+    this.wxpay = new Wechatpay({
+      mchid: this.mchId,
+      serial: this.serialNo,
+      privateKey: merchantPrivateKey,
+      certs,
+    });
+    this.logger.log(`平台证书已注册（与公钥共存验签）: ${platformSerials.join(', ')}`);
   }
 
   /**

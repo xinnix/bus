@@ -14,7 +14,7 @@
 - [x] Web 主路径：登录 → 创建 Todo → 列表可见
 - [ ] CI 可跑（先本地 `start-all` 前提下跑通，CI 接入归 E5）
 
-运行方式：`start-all` + seed 后，`pnpm --filter @loom/e2e test`。
+运行方式：`start-all` + seed 后，`pnpm --filter @sanqin/e2e test`。
 
 ### API 集成测试（真实 PostgreSQL）
 
@@ -22,7 +22,7 @@
 - [x] vitest 集成测试配置（`vitest.integration.config.ts`，与单测隔离；setup 强制改写 dbname 为 loom_test 防误连开发库）
 - [x] 用例：Todo CRUD 真实落库（schema 默认值/时间戳）+ TodoService complete/uncomplete
 - [x] 用例：数据隔离（R5：list 按 userId 过滤；跨用户 id+userId 读/改/删均不越权）
-- [x] `pnpm --filter @loom/api run test:integration` 运行（4 用例全过）；主 `pnpm test` 不含集成目录
+- [x] `pnpm --filter @sanqin/api run test:integration` 运行（4 用例全过）；主 `pnpm test` 不含集成目录
 
 > 状态：✅ E1 最小版全部完成（2026-10-13）。CI 接入归 E5。
 

@@ -2,7 +2,7 @@ import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { randomUUID } from 'node:crypto';
 import type { AssistantMessage, AssistantMessageEventStream } from '@earendil-works/pi-ai';
-import type { Prisma } from '@loom/database';
+import type { Prisma } from '@sanqin/database';
 import { PrismaService } from '../../prisma/prisma.service';
 
 /** 调用方提供的归因元数据（agent 调用时 traceId=runId、sceneKey=agentSlug） */

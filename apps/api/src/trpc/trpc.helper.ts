@@ -1,11 +1,32 @@
 import { z } from 'zod';
+import { Prisma } from '@sanqin/database';
 import { router, publicProcedure, protectedProcedure, permissionProcedure } from './trpc';
 import { SearchSchema, FilterSchema, FilterCondition } from './search-filter.types';
 import { buildWhereClause } from './search-filter.builder';
-import type { PermissionKey } from '@loom/shared';
+import type { PermissionKey } from '@sanqin/shared';
 
 // Re-export protectedProcedure for use in routers
 export { protectedProcedure };
+
+/**
+ * 模型是否声明了某字段（读 Prisma 7 dmmf.datamodel）。
+ * 用于 create/update 前按需注入审计字段（createdById/updatedById），
+ * 避免对没有审计列的模型（如 P0 票务各表）盲目注入导致 Prisma 报错。
+ */
+function modelHasField(modelName: string, field: string): boolean {
+  try {
+    const models = (Prisma as any).dmmf?.datamodel?.models;
+    if (!Array.isArray(models)) return false;
+    const model = models.find(
+      (m: any) => typeof m?.name === 'string' && m.name.toLowerCase() === modelName.toLowerCase(),
+    );
+    const fields = model?.fields;
+    if (!Array.isArray(fields)) return false;
+    return fields.some((f: any) => f?.name === field);
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Service interface that can be injected into createCrudRouter.
@@ -142,7 +163,7 @@ const defaultDeleteManySchema = z.object({
  * @example
  * ```typescript
  * import { createCrudRouter } from './trpc.helper';
- * import { TodoSchema } from '@loom/shared';
+ * import { TodoSchema } from '@sanqin/shared';
  *
  * export const todoRouter = createCrudRouter('Todo', {
  *   create: TodoSchema.createInput,
@@ -387,9 +408,14 @@ export const createCrudRouter = <TModelName extends string>(
 
       const model = (ctx.prisma as any)[modelName.charAt(0).toLowerCase() + modelName.slice(1)];
       // Inject userId if available in context (these are plain FK fields, not relations)
+      // 仅当模型确实声明了审计列时注入，否则 Prisma 会报 Unknown argument
       if ((ctx as any).user?.id) {
-        createData.createdById = (ctx as any).user.id;
-        createData.updatedById = (ctx as any).user.id;
+        if (modelHasField(modelName, 'createdById')) {
+          createData.createdById = (ctx as any).user.id;
+        }
+        if (modelHasField(modelName, 'updatedById')) {
+          createData.updatedById = (ctx as any).user.id;
+        }
       }
 
       return model.create({
@@ -431,16 +457,8 @@ export const createCrudRouter = <TModelName extends string>(
       const model = (ctx.prisma as any)[modelName.charAt(0).toLowerCase() + modelName.slice(1)];
       // Inject userId if available in context (these are plain FK fields, not relations)
       // Only add updatedById if the model has this field
-      if ((ctx as any).user?.id) {
-        // Check if model has updatedById field before adding it
-        // Models like Department don't have this field
-        const dmmf = (ctx.prisma as any)._dmmf;
-        if (dmmf && dmmf.modelMap) {
-          const modelInfo = dmmf.modelMap[modelName];
-          if (modelInfo && modelInfo.fields && modelInfo.fields.updatedById) {
-            updateData.updatedById = (ctx as any).user.id;
-          }
-        }
+      if ((ctx as any).user?.id && modelHasField(modelName, 'updatedById')) {
+        updateData.updatedById = (ctx as any).user.id;
       }
 
       return model.update({

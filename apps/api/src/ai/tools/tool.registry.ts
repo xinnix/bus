@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 import { parse as parseYaml } from 'yaml';
-import { ToolFileYmlSchema, type ToolParameterSchema } from '@loom/shared';
+import { ToolFileYmlSchema, type ToolParameterSchema } from '@sanqin/shared';
 import { ErrorCodes } from '../../core/exceptions';
 import { BusinessException } from '../../core/exceptions/business.exception';
 import { ToolExecutor } from './tool.executor';

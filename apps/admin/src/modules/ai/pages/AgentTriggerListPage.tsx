@@ -5,7 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { StandardListPage } from '../../../shared/components/StandardListPage';
 import { getTrpcClient } from '../../../shared/trpc/trpcClient';
 import { AgentTriggerForm } from '../components/AgentTriggerForm';
-import { Permission } from '@loom/shared';
+import { Permission } from '@sanqin/shared';
 
 /**
  * Agent 定时触发管理（ADR-009）。

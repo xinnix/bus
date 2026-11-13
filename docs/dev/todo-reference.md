@@ -463,7 +463,7 @@ export const API_ENDPOINTS = {
 - [ ] `infra/shared` — 添加 CreateSchema / UpdateSchema / Schema / ListQuerySchema / 类型
 - [ ] `infra/shared` — 添加权限常量到 `PERMISSIONS`
 - [ ] 运行 `prisma migrate dev` → 生成迁移文件
-- [ ] 重建 `@loom/shared`
+- [ ] 重建 `@sanqin/shared`
 
 ### 后端 API
 

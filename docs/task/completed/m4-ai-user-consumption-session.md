@@ -15,7 +15,7 @@
 
 - [x] `AgentYmlSchema` 加 `audience: 'admin' | 'user' | 'all'`（缺省 admin）
 - [x] yml-schemas 单测覆盖 audience 默认值与非法值
-- [x] `pnpm --filter @loom/shared build`
+- [x] `pnpm --filter @sanqin/shared build`
 
 ### 2. 数据模型
 

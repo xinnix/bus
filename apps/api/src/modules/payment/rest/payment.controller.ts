@@ -11,12 +11,16 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { WechatPayService } from '../services/wechat-pay.service';
+import { PaymentService } from '../services/payment.service';
 
 @Controller('payments')
 export class PaymentController {
   private readonly logger = new Logger(PaymentController.name);
 
-  constructor(private readonly wechatPayService: WechatPayService) {}
+  constructor(
+    private readonly wechatPayService: WechatPayService,
+    private readonly paymentService: PaymentService,
+  ) {}
 
   /**
    * 微信支付回调通知
@@ -44,9 +48,21 @@ export class PaymentController {
         'wechatpay-serial': headers['wechatpay-serial'],
       });
 
-      res.status(200).send();
+      const handled = await this.paymentService.handlePaymentSuccess({
+        orderId: payment.orderId,
+        orderNo: payment.orderNo,
+        transactionId: payment.transactionId,
+        amount: payment.amount,
+        paidAt: payment.paidAt,
+        // 留存微信原始通知报文，便于对账排查
+        rawNotify: JSON.parse(rawBody.toString('utf8')),
+      });
+      if (!handled.handled) {
+        this.logger.error(`支付回调业务处理失败: ${JSON.stringify(handled)}`);
+        return res.status(500).json({ code: 'FAIL', message: handled.reason || '处理失败' });
+      }
 
-      // 业务方在此处实现支付成功后的业务逻辑
+      res.status(200).send();
       this.logger.log(`支付回调验签成功: ${payment.orderId} → ${payment.transactionId}`);
     } catch (error: any) {
       this.logger.error('支付回调处理失败', error);

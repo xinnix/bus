@@ -1,6 +1,6 @@
 # E2E 测试（手动触发）
 #
-# 与本地跑法对齐：start-all 起全套服务 + seed 后 `pnpm --filter @loom/e2e test`。
+# 与本地跑法对齐：start-all 起全套服务 + seed 后 `pnpm --filter @sanqin/e2e test`。
 # CI 内自建完整环境：PostgreSQL service + migrate + SQL seed + API/Admin/Web 三服务 + Playwright chromium。
 # 不随 push 自动跑（慢、重）；需要时手动触发，后续如需可加 nightly schedule。
 name: E2E Tests
@@ -52,19 +52,19 @@ jobs:
 
       - name: Build API and dependencies
         run: |
-          pnpm --filter @loom/shared build
-          pnpm --filter @loom/database exec prisma generate
-          pnpm --filter @loom/api build
+          pnpm --filter @sanqin/shared build
+          pnpm --filter @sanqin/database exec prisma generate
+          pnpm --filter @sanqin/api build
 
       - name: Migrate database
-        run: pnpm --filter @loom/database exec prisma migrate deploy
+        run: pnpm --filter @sanqin/database exec prisma migrate deploy
 
       # Prisma seed 与 7.x adapter 有兼容问题，按仓库惯例 SQL 直灌（AGENTS.md）
       - name: Seed base data
         run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/database/prisma/seed-base.sql
 
       - name: Install Playwright browsers
-        run: pnpm --filter @loom/e2e exec playwright install --with-deps chromium
+        run: pnpm --filter @sanqin/e2e exec playwright install --with-deps chromium
 
       - name: Start API (port 3000)
         run: |
@@ -105,7 +105,7 @@ jobs:
           done
 
       - name: Run E2E tests
-        run: pnpm --filter @loom/e2e test
+        run: pnpm --filter @sanqin/e2e test
 
       - name: Dump service logs on failure
         if: failure()

@@ -1,5 +1,5 @@
 import type { AgentTool, AgentToolResult } from '@earendil-works/pi-agent-core';
-import type { ToolParameterSchema } from '@loom/shared';
+import type { ToolParameterSchema } from '@sanqin/shared';
 import type { LlmUsageAggregate } from '../llm/interfaces';
 
 /**

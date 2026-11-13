@@ -73,7 +73,7 @@ node .claude/skills/genModule/scripts/generate-module.ts category --no-rest
 ```bash
 cd infra/database && npx prisma migrate dev --name add_<module>
 npx prisma generate
-pnpm --filter @loom/shared build   # 权限注册进 dist，Admin 菜单依赖它
+pnpm --filter @sanqin/shared build   # 权限注册进 dist，Admin 菜单依赖它
 ```
 
 ---
@@ -87,7 +87,7 @@ genModule 由 Agent 执行时按以下顺序编排（先收集、再预览、后
 3. **问是否需要外部端**：无 Web/小程序诉求的纯管理模块传 `--no-rest`
 4. **`--dry-run` 预览**：向用户展示文件清单、枚举字典、Zod 预览，确认后执行
 5. **执行生成**
-6. **引导收尾**：`/db-migrate` → `pnpm --filter @loom/shared build` → `/type-check`（api/admin/web 全绿）
+6. **引导收尾**：`/db-migrate` → `pnpm --filter @sanqin/shared build` → `/type-check`（api/admin/web 全绿）
 
 # Smart Field Inference (Phase 2)
 
@@ -208,7 +208,7 @@ export const ProductSchema = {
 
 ```typescript
 import { createCrudRouter } from '../../../trpc/trpc.helper';
-import { ProductSchema } from '@loom/shared';
+import { ProductSchema } from '@sanqin/shared';
 
 export const productRouter = createCrudRouter('Product', {
   create: ProductSchema.createInput,
@@ -221,7 +221,7 @@ export const productRouter = createCrudRouter('Product', {
 **⚠️ Important Notes:**
 
 - Use **relative import path** `../../../trpc/trpc.helper` (NOT `@shared/trpc/trpc.helper`)
-- Use **@loom/shared** for schema imports (NOT `@shared/index`)
+- Use **@sanqin/shared** for schema imports (NOT `@shared/index`)
 - Parameters format: `(modelName, { create, update, getMany, getOne })` - NOT object format
 
 **Option B: Custom Router (For complex logic)**
@@ -496,7 +496,7 @@ import { ProductSchema } from '@shared/index';
 
 // ✅ CORRECT
 import { createCrudRouter } from '../../../trpc/trpc.helper';
-import { ProductSchema } from '@loom/shared';
+import { ProductSchema } from '@sanqin/shared';
 ```
 
 ---
@@ -821,13 +821,13 @@ Make sure you're running the script from the correct project root directory. The
   - [ ] updateInput does NOT include `id` field
   - [ ] Optional string fields use `.nullable().optional()`
 - [ ] Permission registered in `infra/shared/src/permissions/registry.ts`
-- [ ] `pnpm --filter @loom/shared build` 重建 dist
+- [ ] `pnpm --filter @sanqin/shared build` 重建 dist
 
 ### Backend Checklist
 
 - [ ] tRPC router created with correct import paths
   - [ ] Use relative path: `../../../trpc/trpc.helper`
-  - [ ] Use `@loom/shared` for schema imports
+  - [ ] Use `@sanqin/shared` for schema imports
 - [ ] tRPC router registered in `apps/api/src/trpc/app.router.ts`
 - [ ] Router spec 可跑：`npx vitest run src/modules/<name>/trpc/<name>.router.spec.ts`
 - [ ] REST Controller（外部端模块）：`/api/<plural>` 五端点 + JwtAuthGuard + userId 隔离

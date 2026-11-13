@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { CreateLlmConfigSchema, Permission, UpdateLlmConfigSchema } from '@loom/shared';
+import { CreateLlmConfigSchema, Permission, UpdateLlmConfigSchema } from '@sanqin/shared';
 import { createCrudRouterWithCustom } from '../../../trpc/trpc.helper';
 import { permissionProcedure } from '../../../trpc/trpc';
 import { ErrorCodes } from '../../../core/exceptions';

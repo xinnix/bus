@@ -53,6 +53,47 @@ export const Permission = {
   llmusage: {
     read: 'llmusage:read',
   },
+  line: {
+    create: 'line:create',
+    read: 'line:read',
+    update: 'line:update',
+    delete: 'line:delete',
+  },
+  station: {
+    create: 'station:create',
+    read: 'station:read',
+    update: 'station:update',
+    delete: 'station:delete',
+  },
+  scheduleTemplate: {
+    create: 'scheduleTemplate:create',
+    read: 'scheduleTemplate:read',
+    update: 'scheduleTemplate:update',
+    delete: 'scheduleTemplate:delete',
+  },
+  trip: {
+    create: 'trip:create',
+    read: 'trip:read',
+    update: 'trip:update',
+    delete: 'trip:delete',
+  },
+  order: {
+    read: 'order:read',
+    update: 'order:update',
+  },
+  ticket: {
+    read: 'ticket:read',
+  },
+  checkin: {
+    read: 'checkin:read',
+    create: 'checkin:create',
+  },
+  checker: {
+    create: 'checker:create',
+    read: 'checker:read',
+    update: 'checker:update',
+    delete: 'checker:delete',
+  },
   settings: {
     read: 'settings:read',
     update: 'settings:update',
@@ -66,12 +107,6 @@ export const Permission = {
     update: 'wecom:update',
     delete: 'wecom:delete',
   },
-  todo: {
-    create: 'todo:create',
-    read: 'todo:read',
-    update: 'todo:update',
-    delete: 'todo:delete',
-  },
   menu: {
     agents: 'menu:agents',
     llmConfigs: 'menu:llmConfigs',
@@ -83,6 +118,13 @@ export const Permission = {
     admins: 'menu:admins',
     roles: 'menu:roles',
     wecom: 'menu:wecom',
+    lines: 'menu:lines',
+    stations: 'menu:stations',
+    scheduleTemplates: 'menu:scheduleTemplates',
+    trips: 'menu:trips',
+    orders: 'menu:orders',
+    checkins: 'menu:checkins',
+    checkers: 'menu:checkers',
   },
 } as const;
 

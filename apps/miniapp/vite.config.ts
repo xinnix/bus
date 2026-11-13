@@ -9,7 +9,8 @@ import { defineConfig, loadEnv } from 'vite';
 import UniPolyfill from 'vite-plugin-uni-polyfill';
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => {
+// as any：部分 uni 插件随 vite8 类型包声明返回类型，与锁定的 vite5 类型形参不兼容（运行时兼容）
+export default defineConfig((({ mode }: { mode: string }) => {
   const env = loadEnv(mode, process.cwd());
 
   return {
@@ -22,6 +23,8 @@ export default defineConfig(({ mode }) => {
       // https://uni-helper.js.org/vite-plugin-uni-pages
       UniHelperPages({
         dts: 'src/uni-pages.d.ts',
+        // 关闭与旧 src/pages.json 的合并，避免脚手架遗留死页面永远回流
+        mergePages: false,
       }),
       // https://uni-helper.js.org/vite-plugin-uni-layouts
       UniHelperLayouts(),
@@ -45,4 +48,4 @@ export default defineConfig(({ mode }) => {
       UnoCSS(),
     ],
   };
-});
+}) as any);

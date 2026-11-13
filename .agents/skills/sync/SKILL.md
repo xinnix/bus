@@ -39,7 +39,7 @@ pnpm -C infra/shared build
 ## What it does
 
 - **Prisma generate**: Updates the Prisma client with latest schema types
-- **Build shared**: Rebuilds `@loom/shared` package with updated types
+- **Build shared**: Rebuilds `@sanqin/shared` package with updated types
 
 ## Notes
 

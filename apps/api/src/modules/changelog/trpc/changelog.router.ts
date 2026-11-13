@@ -1,4 +1,4 @@
-import { ChangelogQuerySchema, Permission, type ChangelogEntry } from '@loom/shared';
+import { ChangelogQuerySchema, Permission, type ChangelogEntry } from '@sanqin/shared';
 import { router, permissionProcedure } from '../../../trpc/trpc';
 import { ChangelogReader } from '../changelog.reader';
 

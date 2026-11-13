@@ -1,4 +1,4 @@
-import type { ToolParameterSchema } from '@loom/shared';
+import type { ToolParameterSchema } from '@sanqin/shared';
 
 export interface SchemaValidationResult {
   ok: boolean;

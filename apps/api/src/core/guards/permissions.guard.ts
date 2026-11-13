@@ -1,7 +1,7 @@
 import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PERMISSIONS_KEY } from '../../modules/auth/decorators/decorators';
-import type { PermissionKey } from '@loom/shared';
+import type { PermissionKey } from '@sanqin/shared';
 import { hasSuperAdminRole } from '../../shared/permissions';
 
 @Injectable()

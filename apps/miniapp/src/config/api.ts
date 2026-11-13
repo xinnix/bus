@@ -27,10 +27,6 @@ export const API_ENDPOINTS = {
   refresh: '/auth/refresh',
   wechatLogin: '/auth/wechat/login',
 
-  // TODO 相关（示例模块）
-  todos: '/todos',
-  todoDetail: (id: string) => `/todos/${id}`,
-
   // Agent 相关
   agentsActive: '/agents/active',
   agentChat: (id: string) => `/agents/${id}/user-chat`,

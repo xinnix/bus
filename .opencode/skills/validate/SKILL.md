@@ -25,7 +25,7 @@ pnpm type-check
 
 ```bash
 pnpm --filter admin lint
-pnpm --filter @loom/web lint
+pnpm --filter @sanqin/web lint
 ```
 
 ### 3. 构建
@@ -43,7 +43,7 @@ pnpm build:landing
 ```bash
 pnpm test
 pnpm --filter admin run test
-pnpm --filter @loom/api run test
+pnpm --filter @sanqin/api run test
 ```
 
 ### 5. 输出汇总

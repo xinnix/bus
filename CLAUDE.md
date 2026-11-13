@@ -105,7 +105,7 @@ export class ProductService extends BaseService<Product> {
 
 - `schema.prisma` 是唯一的模型真理源
 - `infra/shared` 是唯一的验证真理源
-- 所有端共享 `@loom/shared` 类型
+- 所有端共享 `@sanqin/shared` 类型
 
 ## Schema 变更流程
 
@@ -114,7 +114,7 @@ export class ProductService extends BaseService<Product> {
 ```
 1. 修改 schema.prisma
 2. /db-migrate                    → 生成迁移 SQL + 应用到本地库 + 生成 Prisma Client + Seed
-3. /sync                          → 重新构建 @loom/shared（Zod Schema 与 Prisma Client 对齐）
+3. /sync                          → 重新构建 @sanqin/shared（Zod Schema 与 Prisma Client 对齐）
 4. git add infra/database/prisma/migrations/ && git commit && git push
 5. CI 自动 prisma migrate deploy  → 生产数据库同步
 ```
@@ -252,7 +252,7 @@ docker exec -i postgres psql -U xinnix -d loom < infra/database/prisma/seed-base
 **API 端（`apps/api/src/modules/{name}/`）：**
 
 - [ ] Prisma Model 定义在 `schema.prisma` 中
-- [ ] Zod Schema（Create/Update）定义在 `@loom/shared`
+- [ ] Zod Schema（Create/Update）定义在 `@sanqin/shared`
 - [ ] Service 继承 `BaseService<T>`（`*.service.ts`）
 - [ ] CRUD Router — `createCrudRouter` 或 `createCrudRouterWithCustom`（`*.router.ts`）
 - [ ] Module 注册到 feature 模块（`*.module.ts`）
@@ -382,4 +382,4 @@ Agent 必须在开发全生命周期使用 `docs/task/` 持久化任务追踪系
 - No Prisma enums in schema — all enum-like fields are `String` with comments
 - StandardListPage and generated list pages have duplicated mutation callback patterns
 - tRPC context (`verifyJwtToken`) only resolves Admin users — Web/Miniapp users must use REST endpoints
-- `@loom/shared` `User` interface lacks `nickname`/`phone` fields that exist in Prisma `users` model
+- `@sanqin/shared` `User` interface lacks `nickname`/`phone` fields that exist in Prisma `users` model

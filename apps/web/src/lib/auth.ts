@@ -3,7 +3,7 @@
  * 通过 Next.js API Route 代理后端认证，使用 httpOnly Cookie 存储 Token
  */
 
-import type { User } from '@loom/shared';
+import type { User } from '@sanqin/shared';
 
 export interface AuthResponse {
   user: User;

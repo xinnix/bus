@@ -1,4 +1,4 @@
-import { Prisma } from '@loom/database';
+import { Prisma } from '@sanqin/database';
 
 const SOFT_DELETE_MODELS = new Set(['Admin', 'User', 'Role', 'Permission']);
 

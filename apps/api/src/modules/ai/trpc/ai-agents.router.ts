@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { Permission } from '@loom/shared';
+import { Permission } from '@sanqin/shared';
 import { createCrudRouterWithCustom } from '../../../trpc/trpc.helper';
 import { permissionProcedure } from '../../../trpc/trpc';
 import { ErrorCodes } from '../../../core/exceptions';

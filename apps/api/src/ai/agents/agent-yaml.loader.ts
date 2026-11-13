@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 import { parse as parseYaml } from 'yaml';
-import { AgentYmlSchema, type AgentYml } from '@loom/shared';
+import { AgentYmlSchema, type AgentYml } from '@sanqin/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ErrorCodes } from '../../core/exceptions';
 import { BusinessException } from '../../core/exceptions/business.exception';

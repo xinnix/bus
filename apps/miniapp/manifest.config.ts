@@ -1,7 +1,7 @@
 import { defineManifestConfig } from '@uni-helper/vite-plugin-uni-manifest';
 
 export default defineManifestConfig({
-  name: 'vitesse-uni-app',
+  name: '桥水出行',
   appid: '',
   description: '',
   versionName: '1.0.0',
@@ -52,7 +52,7 @@ export default defineManifestConfig({
   quickapp: {},
   /* 小程序特有相关 */
   'mp-weixin': {
-    appid: 'wxae16eb94a6be55a5',
+    appid: 'wx31816c67663cec0e',
     setting: {
       urlCheck: false,
     },

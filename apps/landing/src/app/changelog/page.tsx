@@ -134,8 +134,8 @@ function renderInline(text: string, keyPrefix: string) {
 }
 
 export const metadata: Metadata = {
-  title: '更新日志 — Loom',
-  description: 'Loom 版本变更日志：每次改动的完整编年记录，由仓库 CHANGELOG.md 构建期生成。',
+  title: '更新日志 — 三秦巴士',
+  description: '三秦巴士 版本变更日志：每次改动的完整编年记录，由仓库 CHANGELOG.md 构建期生成。',
 };
 
 export default function ChangelogPage() {
@@ -248,7 +248,7 @@ export default function ChangelogPage() {
       <footer className="relative z-10 w-full bg-surface-container-lowest mt-auto">
         <div className="max-w-5xl mx-auto px-margin md:px-margin-desktop py-space-lg flex flex-col sm:flex-row items-center justify-between gap-space-sm">
           <p className="font-body-md text-body-md text-text-muted">
-            © {new Date().getFullYear()} Loom Framework. 为自主智能体提供精准编织。
+            © {new Date().getFullYear()} 三秦巴士 Framework. 为自主智能体提供精准编织。
           </p>
           <a
             className="font-label-mono text-label-mono text-on-surface-variant hover:text-primary transition-colors"

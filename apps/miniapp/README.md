@@ -34,7 +34,7 @@ Vitesse for uni-app
 
 ---
 
-# @loom/miniapp
+# @sanqin/miniapp
 
 基于 uni-app 的微信小程序，使用 Vue 3 + TypeScript + Vite 开发。
 
@@ -59,7 +59,7 @@ pnpm install
 pnpm dev:miniapp
 
 # 或使用 pnpm filter
-pnpm --filter @loom/miniapp dev
+pnpm --filter @sanqin/miniapp dev
 ```
 
 ### 构建生产版本
@@ -101,11 +101,11 @@ VITE_API_BASE_URL=http://localhost:3000/api
 
 ## 使用共享包
 
-小程序可以使用 `@loom/shared` 包中的类型和工具：
+小程序可以使用 `@sanqin/shared` 包中的类型和工具：
 
 ```typescript
-import { someUtil } from '@loom/shared';
-import type { User } from '@loom/shared';
+import { someUtil } from '@sanqin/shared';
+import type { User } from '@sanqin/shared';
 ```
 
 ## 注意事项

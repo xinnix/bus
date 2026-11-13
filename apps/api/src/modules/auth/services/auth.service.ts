@@ -6,11 +6,13 @@ import { z } from 'zod';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { WechatService } from '../../wechat/wechat.service';
 
-// 🔥 使用 @loom/shared 的类型和 schema
-import { LoginSchema, RegisterSchema, RefreshTokenSchema, User } from '@loom/shared';
+// 🔥 使用 @sanqin/shared 的类型和 schema
+import { LoginSchema, RegisterSchema, RefreshTokenSchema, User } from '@sanqin/shared';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
@@ -123,8 +125,17 @@ export class AuthService {
    * 4. 生成并返回 token
    */
   async loginWithWechat(code: string) {
-    // 1. 获取 openid 和 sessionKey
-    const { openid, sessionKey, unionid } = await this.wechatService.code2Session(code);
+    // 1. 获取 openid 和 sessionKey（code 一次性，过期/重放转为 401，不暴露堆栈）
+    let session: { openid: string; sessionKey: string; unionid?: string };
+    try {
+      session = await this.wechatService.code2Session(code);
+    } catch (error) {
+      this.logger.warn(
+        `微信 code2Session 失败: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw new UnauthorizedException('微信登录失败，登录态已过期，请重试');
+    }
+    const { openid, sessionKey, unionid } = session;
 
     // 2. 查找或创建用户
     let user = await this.prisma.user.findUnique({
@@ -151,6 +162,14 @@ export class AuthService {
       });
     }
 
+    // 2.1 记录多小程序身份（P0 单 appid，为后续多品牌预留）
+    const appId = process.env.WX_APP_ID || 'default';
+    await this.prisma.userIdentity.upsert({
+      where: { appId_openid: { appId, openid } },
+      create: { userId: user.id, appId, openid, unionid, sessionKeyEnc: sessionKey },
+      update: { userId: user.id, unionid, sessionKeyEnc: sessionKey },
+    });
+
     // 3. 生成令牌
     const { accessToken, refreshToken } = await this.generateUserTokens(user);
 
@@ -162,6 +181,43 @@ export class AuthService {
       accessToken,
       refreshToken,
     };
+  }
+
+  /**
+   * 本地开发登录（仅 NODE_ENV !== production）：按手机号创建/复用测试用户。
+   */
+  async devLogin(phone: string, name?: string) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new UnauthorizedException('生产环境不允许开发登录');
+    }
+    const username = `dev_${phone}`;
+    let user = await this.prisma.user.findFirst({ where: { OR: [{ username }, { phone }] } });
+    if (!user) {
+      user = await this.prisma.user.create({
+        data: {
+          username,
+          phone,
+          nickname: name || '测试乘客',
+          passwordHash: '',
+        },
+      });
+    }
+    const { accessToken, refreshToken } = await this.generateUserTokens(user);
+    const { passwordHash: _, sessionKey: __, ...sanitizedUser } = user;
+    return { user: sanitizedUser, accessToken, refreshToken };
+  }
+
+  /**
+   * 绑定微信手机号（小程序 getPhoneNumber 回调 code）
+   */
+  async bindWechatPhone(userId: string, code: string) {
+    const { phoneNumber } = await this.wechatService.getPhoneNumber(code);
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { phone: phoneNumber, lastLoginAt: new Date() },
+    });
+    const { passwordHash: _, sessionKey: __, ...sanitizedUser } = user;
+    return sanitizedUser;
   }
 
   /**

@@ -15,7 +15,7 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { JwtAuthGuard } from '../../../core/guards/jwt.guard';
-import { Permission } from '@loom/shared';
+import { Permission } from '@sanqin/shared';
 import {
   AgentRuntimeService,
   type RunEvent,

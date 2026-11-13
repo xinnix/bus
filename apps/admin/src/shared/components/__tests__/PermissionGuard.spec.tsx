@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderWithAntd } from '../../../test/render';
 import { PermissionGuard } from '../PermissionGuard';
-import type { PermissionKey } from '@loom/shared';
+import type { PermissionKey } from '@sanqin/shared';
 
 const { mockUseAuth } = vi.hoisted(() => ({ mockUseAuth: vi.fn() }));
 

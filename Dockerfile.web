@@ -17,8 +17,8 @@ FROM deps AS builder
 WORKDIR /app
 COPY . .
 RUN mkdir -p apps/web/public
-RUN pnpm --filter @loom/shared build
-RUN pnpm --filter @loom/web build
+RUN pnpm --filter @sanqin/shared build
+RUN pnpm --filter @sanqin/web build
 
 # Stage 4: Production
 FROM node:22-alpine AS runner

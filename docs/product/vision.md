@@ -26,7 +26,7 @@ Loom 做到终态时，一个新项目从零到首个业务模块上线应该只
 
 | #   | 红线                                                                                                              | 依据             |
 | --- | ----------------------------------------------------------------------------------------------------------------- | ---------------- |
-| R1  | `schema.prisma` 是唯一模型真理源；`infra/shared` 是唯一验证真理源；所有端共享 `@loom/shared` 类型                 | SSOT 原则        |
+| R1  | `schema.prisma` 是唯一模型真理源；`infra/shared` 是唯一验证真理源；所有端共享 `@sanqin/shared` 类型               | SSOT 原则        |
 | R2  | 生产数据库只走 `migrate deploy`，迁移文件必须入库，禁止 `db push`                                                 | Schema 变更流程  |
 | R3  | 管理端页面必须使用三大标准组件（StandardListPage / StandardForm / StandardDetailPage），仅允许 `render*` 插槽扩展 | ADR-003、ADR-004 |
 | R4  | 双协议边界：Admin 端走 tRPC，外部端（Web/小程序/Landing）走 REST；tRPC context 只解析 Admin 用户                  | ADR-001          |

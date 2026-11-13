@@ -14,7 +14,7 @@ import { LlmService } from '../llm/llm.service';
 import { buildPiModel, dynamicImport } from '../llm/pi-model.factory';
 import { accumulateUsage, emptyUsage, type LlmUsageAggregate } from '../llm/interfaces';
 import { LlmTraceService, traceLlmStream } from '../llm-trace/llm-trace.service';
-import type { WorkflowNode } from '@loom/shared';
+import type { WorkflowNode } from '@sanqin/shared';
 import type { ToolExecutionContext } from '../tools/interfaces';
 
 /** 默认 run 级 token 预算（OWASP token/cost limits；YML budgetTokens 可覆盖） */

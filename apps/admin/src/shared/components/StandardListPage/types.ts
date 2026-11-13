@@ -3,7 +3,7 @@
 import type { FormInstance } from 'antd/es/form';
 import type { ColumnType } from 'antd/es/table';
 import type { ReactNode } from 'react';
-import type { PermissionKey } from '@loom/shared';
+import type { PermissionKey } from '@sanqin/shared';
 
 /**
  * 搜索字段配置

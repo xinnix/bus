@@ -502,93 +502,115 @@ export type SendKfMessageInput = z.infer<typeof SendKfMessageSchema>;
 export type SyncKfMessageInput = z.infer<typeof SyncKfMessageSchema>;
 
 // ============================================
-// Todo Schemas
+// P0 票务核心 Schemas
 // ============================================
-// Todo 作为参考模块，展示了完整的 Zod Schema 写法：
-//   - CreateSchema：创建时的必填字段和可选字段
-//   - UpdateSchema：更新时的所有可选字段（部分更新）
-//   - Schema：完整的数据库模型定义（用于前端展示）
-//   - ListQuerySchema：列表查询参数（分页 + 搜索 + 筛选）
 
-export const TodoStatus = {
-  PENDING: 'pending',
-  IN_PROGRESS: 'in_progress',
-  COMPLETED: 'completed',
-  CANCELLED: 'cancelled',
-} as const;
+const StatusSchema = z.enum(['ACTIVE', 'INACTIVE']);
 
-export type TodoStatusType = (typeof TodoStatus)[keyof typeof TodoStatus];
-
-export const TodoPriority = {
-  LOW: 0,
-  MEDIUM: 1,
-  HIGH: 2,
-} as const;
-
-export type TodoPriorityType = (typeof TodoPriority)[keyof typeof TodoPriority];
-
-/**
- * 完整的 Todo 模型，用于详情展示
- */
-export const TodoSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  description: z.string().nullable().optional(),
-  status: z.enum(['pending', 'in_progress', 'completed', 'cancelled']),
-  priority: z.number().int().min(0).max(2),
-  dueDate: z.date().nullable().optional(),
-  isCompleted: z.boolean(),
-  userId: z.string(),
-  createdAt: z.date(),
-  updatedAt: z.date(),
-  completedAt: z.date().nullable().optional(),
+export const CreateLineSchema = z.object({
+  name: z.string().min(1, '线路名称不能为空').max(100),
+  startCity: z.string().min(1, '出发地不能为空').max(50),
+  endCity: z.string().min(1, '到达地不能为空').max(50),
+  publishStatus: z.enum(['DRAFT', 'PUBLISHED']).optional().default('DRAFT'),
+  sort: z.number().int().min(0).optional().default(0),
 });
 
-/**
- * 创建 Todo 时提交的数据
- * 必填：title
- * 可选：description, status, priority, dueDate
- * 自动填充：userId（从 JWT 中获取）
- */
-export const CreateTodoSchema = z.object({
-  title: z.string().min(1, '标题不能为空').max(200, '标题不能超过200个字符'),
-  description: z.string().max(1000, '描述不能超过1000个字符').optional().nullable(),
-  status: z
-    .enum(['pending', 'in_progress', 'completed', 'cancelled'])
-    .optional()
-    .default('pending'),
-  priority: z.number().int().min(0).max(2).optional().default(0),
-  dueDate: z.date().optional().nullable(),
-  isCompleted: z.boolean().optional().default(false),
+export const UpdateLineSchema = CreateLineSchema.partial();
+
+export const CreateStationSchema = z.object({
+  name: z.string().min(1, '站点名称不能为空').max(100),
+  address: z.string().min(1, '站点地址不能为空').max(300),
+  lng: z.number().min(-180).max(180).optional().nullable(),
+  lat: z.number().min(-90).max(90).optional().nullable(),
+  sort: z.number().int().min(0).optional().default(0),
+  status: StatusSchema.optional().default('ACTIVE'),
 });
 
-/**
- * 更新 Todo 时提交的数据
- * 所有字段均为可选（部分更新）
- */
-export const UpdateTodoSchema = z.object({
-  title: z.string().min(1).max(200).optional(),
-  description: z.string().max(1000).nullable().optional(),
-  status: z.enum(['pending', 'in_progress', 'completed', 'cancelled']).optional(),
-  priority: z.number().int().min(0).max(2).optional(),
-  dueDate: z.date().nullable().optional(),
-  isCompleted: z.boolean().optional(),
+export const UpdateStationSchema = CreateStationSchema.partial();
+
+export const CreateScheduleTemplateSchema = z.object({
+  lineId: z.string().min(1),
+  name: z.string().min(1, '班次名称不能为空').max(100),
+  departureTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, '时间格式应为 HH:mm'),
+  priceCents: z.number().int().min(0, '票价不能为负数'),
+  totalSeats: z.number().int().positive('总票数必须大于 0'),
+  weekdays: z.string().optional().default('1,2,3,4,5,6,7'),
+  status: StatusSchema.optional().default('ACTIVE'),
 });
 
-/**
- * Todo 列表查询参数
- * 支持分页 + 关键字搜索 + 状态/优先级筛选
- */
-export const TodoListQuerySchema = z.object({
-  page: z.number().int().positive().optional().default(1),
-  pageSize: z.number().int().positive().optional().default(10),
-  search: z.string().optional(),
-  status: z.string().optional(),
-  priority: z.number().int().optional(),
-  isCompleted: z.boolean().optional(),
+export const UpdateScheduleTemplateSchema = CreateScheduleTemplateSchema.partial();
+
+export const UpdateTripSchema = z.object({
+  departureTime: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+    .optional(),
+  priceCents: z.number().int().min(0).optional(),
+  totalSeats: z.number().int().positive().optional(),
+  status: z.enum(['ON_SALE', 'STOPPED', 'CANCELLED']).optional(),
 });
 
-export type Todo = z.infer<typeof TodoSchema>;
-export type CreateTodoInput = z.infer<typeof CreateTodoSchema>;
-export type UpdateTodoInput = z.infer<typeof UpdateTodoSchema>;
-export type TodoListQueryInput = z.infer<typeof TodoListQuerySchema>;
+export const CreateOrderSchema = z.object({
+  tripId: z.string().min(1),
+  boardingStationId: z.string().optional().nullable(),
+  alightingStationId: z.string().optional().nullable(),
+  contactName: z.string().min(1, '联系人姓名不能为空').max(50),
+  contactPhone: z.string().regex(/^1\d{10}$/, '手机号格式不正确'),
+  ticketCount: z.number().int().min(1).max(4),
+  passengerNames: z.array(z.string().min(1)).optional(),
+});
+
+export const VerifyTicketSchema = z
+  .object({
+    code: z.string().min(1).optional(),
+    qrToken: z.string().min(1).optional(),
+  })
+  .refine((v) => !!(v.code || v.qrToken), { message: '核销码或二维码不能为空' });
+
+export const CreateCheckerSchema = z.object({
+  phone: z.string().regex(/^1\d{10}$/, '手机号格式不正确'),
+  password: z.string().min(6, '密码至少 6 位'),
+  name: z.string().min(1, '姓名不能为空').max(50),
+});
+
+export const UpdateCheckerSchema = z.object({
+  name: z.string().min(1).max(50).optional(),
+  password: z.string().min(6).optional(),
+  status: StatusSchema.optional(),
+});
+
+export const CheckerLoginSchema = z.object({
+  phone: z.string().regex(/^1\d{10}$/, '手机号格式不正确'),
+  password: z.string().min(1, '密码不能为空'),
+});
+
+export type CreateLineInput = z.infer<typeof CreateLineSchema>;
+export type UpdateLineInput = z.infer<typeof UpdateLineSchema>;
+export type CreateStationInput = z.infer<typeof CreateStationSchema>;
+export type UpdateStationInput = z.infer<typeof UpdateStationSchema>;
+export type CreateScheduleTemplateInput = z.infer<typeof CreateScheduleTemplateSchema>;
+export type UpdateScheduleTemplateInput = z.infer<typeof UpdateScheduleTemplateSchema>;
+export type UpdateTripInput = z.infer<typeof UpdateTripSchema>;
+export type CreateOrderInput = z.infer<typeof CreateOrderSchema>;
+export type VerifyTicketInput = z.infer<typeof VerifyTicketSchema>;
+export type CreateCheckerInput = z.infer<typeof CreateCheckerSchema>;
+export type UpdateCheckerInput = z.infer<typeof UpdateCheckerSchema>;
+export type CheckerLoginInput = z.infer<typeof CheckerLoginSchema>;
+
+// ===========================
+// 班次售票规则（唯一真理源：下单硬校验与班次列表展示共用）
+// ===========================
+
+/** 发车后可继续购票的宽限时长（分钟）：超过即停止售票 */
+export const TRIP_SALE_GRACE_MINUTES = 30;
+
+/** 班次是否可购：当前时间早于「发车时间 + 宽限时长」（发车时间解析失败视为不可购） */
+export function isTripPurchasable(
+  serviceDate: string,
+  departureTime: string,
+  now: number = Date.now(),
+): boolean {
+  const departure = new Date(`${serviceDate}T${departureTime}:00`).getTime();
+  if (Number.isNaN(departure)) return false;
+  return departure + TRIP_SALE_GRACE_MINUTES * 60 * 1000 > now;
+}

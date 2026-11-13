@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
-import type { AgentTriggerSchedule } from '@loom/shared';
+import type { AgentTriggerSchedule } from '@sanqin/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SettingsService } from '../../shared/settings/settings.service';
 import { AgentTriggerRunnerService } from './agent-trigger-runner.service';

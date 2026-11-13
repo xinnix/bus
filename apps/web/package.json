@@ -1,5 +1,5 @@
 {
-  "name": "@loom/web",
+  "name": "@sanqin/web",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -10,7 +10,7 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "@loom/shared": "workspace:*",
+    "@sanqin/shared": "workspace:*",
     "next": "^16.2.10",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"

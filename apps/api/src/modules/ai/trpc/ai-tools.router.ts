@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { Permission } from '@loom/shared';
+import { Permission } from '@sanqin/shared';
 import { router } from '../../../trpc/trpc';
 import { permissionProcedure } from '../../../trpc/trpc';
 import { ToolRegistry } from '../../../ai/tools/tool.registry';

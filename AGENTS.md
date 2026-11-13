@@ -72,8 +72,8 @@ pnpm build                      # 构建全部项目
 ### 数据库操作
 
 ```bash
-pnpm --filter @loom/database prisma generate    # 生成 Client
-pnpm --filter @loom/database prisma migrate dev # 运行迁移
+pnpm --filter @sanqin/database prisma generate    # 生成 Client
+pnpm --filter @sanqin/database prisma migrate dev # 运行迁移
 ```
 
 **Seed：推荐用 SQL 脚本直灌**（Prisma 7.x adapter 存在兼容性问题）：
@@ -114,7 +114,7 @@ export class ProductService extends BaseService<Product> {
 
 - `schema.prisma` 是唯一的模型真理源
 - `infra/shared` 是唯一的验证真理源
-- 所有端共享 `@loom/shared` 类型
+- 所有端共享 `@sanqin/shared` 类型
 - 生产数据库只走 `migrate deploy`，禁止 `db push`
 
 ### 2. 管理端页面规范

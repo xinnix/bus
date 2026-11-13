@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Table, Tag, Typography, Card, Popover, Button } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import { getTrpcClient } from '../../../shared/trpc/trpcClient';
-import type { ToolParameterSchema } from '@loom/shared';
+import type { ToolParameterSchema } from '@sanqin/shared';
 
 const { Paragraph } = Typography;
 

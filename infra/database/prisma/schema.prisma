@@ -66,7 +66,8 @@ model User {
 
   // 关联
   refreshTokens UserRefreshToken[]
-  todos         Todo[]
+  identities    UserIdentity[]
+  orders        Order[]
   agentSessions AgentSession[]
 
   @@index([openid])
@@ -474,46 +475,234 @@ model WecomEvent {
 }
 
 // ============================================
-// Todo 示例模型
+// P0 票务核心模型
 // ============================================
-// 这是一个完整的参考示例，演示如何创建一个标准的业务模块。
-// 它展示了：
-//   - 基础字段（title, description）
-//   - 状态枚举字段（status）
-//   - 优先级字段（priority）
-//   - 可选日期字段（dueDate）
-//   - 布尔字段（isCompleted）
-//   - 用户关联（外键）
-//   - 审计字段（timestamps）
-//
-// 配套查看：infra/shared/src/schemas/todo/（Zod 验证）
-//           apps/api/src/modules/todo/（后端 API）
-//           apps/admin/src/modules/todo/（Admin 端）
-//           apps/web/src/app/(protected)/todos/（Web 端）
-//           apps/miniapp/src/pages/todos/（小程序端）
-// ============================================
-model Todo {
-  id          String   @id @default(cuid())
-  title       String
-  description String?
-  status      String   @default("pending") // pending | in_progress | completed | cancelled
-  priority    Int      @default(0)          // 0-low, 1-medium, 2-high
-  dueDate     DateTime?
-  isCompleted Boolean  @default(false)
 
-  // 用户关联
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+model UserIdentity {
+  id            String   @id @default(cuid())
+  userId        String
+  appId         String
+  openid        String
+  unionid       String?
+  sessionKeyEnc String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  // 审计
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  completedAt DateTime?
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([appId, openid])
   @@index([userId])
-  @@index([status])
-  @@index([isCompleted])
-  @@index([createdAt])
-  @@map("todos")
+  @@index([unionid])
+  @@map("user_identities")
 }
 
+model Line {
+  id            String    @id @default(cuid())
+  legacyId      String?   @unique
+  name          String
+  startCity     String
+  endCity       String
+  publishStatus String    @default("DRAFT") // DRAFT | PUBLISHED
+  sort          Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  stations  LineStation[]
+  templates ScheduleTemplate[]
+  trips     Trip[]
+  orders    Order[]
+
+  @@index([publishStatus])
+  @@index([deletedAt])
+  @@map("lines")
+}
+
+model Station {
+  id        String    @id @default(cuid())
+  legacyId  String?   @unique
+  name      String
+  address   String
+  lng       Float?
+  lat       Float?
+  sort      Int       @default(0)
+  status    String    @default("ACTIVE") // ACTIVE | INACTIVE
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  lineStations LineStation[]
+
+  @@index([deletedAt])
+  @@map("stations")
+}
+
+model LineStation {
+  id        String   @id @default(cuid())
+  lineId    String
+  stationId String
+  type      String // BOARD | ALIGHT
+  sort      Int      @default(0)
+  createdAt DateTime @default(now())
+
+  line    Line    @relation(fields: [lineId], references: [id], onDelete: Cascade)
+  station Station @relation(fields: [stationId], references: [id], onDelete: Cascade)
+
+  @@unique([lineId, stationId, type])
+  @@index([lineId])
+  @@index([stationId])
+  @@map("line_stations")
+}
+
+model ScheduleTemplate {
+  id            String    @id @default(cuid())
+  legacyId      String?   @unique
+  lineId        String
+  name          String
+  departureTime String // HH:mm
+  priceCents    Int
+  totalSeats    Int
+  weekdays      String    @default("1,2,3,4,5,6,7") // 1=周一 ... 7=周日
+  status        String    @default("ACTIVE") // ACTIVE | INACTIVE
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  line  Line   @relation(fields: [lineId], references: [id], onDelete: Cascade)
+  trips Trip[]
+
+  @@index([lineId])
+  @@index([deletedAt])
+  @@map("schedule_templates")
+}
+
+model Trip {
+  id            String   @id @default(cuid())
+  templateId    String?
+  lineId        String
+  serviceDate   String // YYYY-MM-DD
+  departureTime String // HH:mm
+  priceCents    Int
+  totalSeats    Int
+  soldSeats     Int      @default(0)
+  status        String   @default("ON_SALE") // ON_SALE | STOPPED | DEPARTED | COMPLETED | CANCELLED
+  version       Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  template ScheduleTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  line     Line               @relation(fields: [lineId], references: [id], onDelete: Restrict)
+  orders   Order[]
+  checkIns CheckIn[]
+
+  @@unique([lineId, serviceDate, departureTime])
+  @@index([lineId, serviceDate, status])
+  @@index([serviceDate])
+  @@map("trips")
+}
+
+model Order {
+  id                 String    @id @default(cuid())
+  orderNo            String    @unique
+  idempotencyKey     String?   @unique
+  userId             String
+  lineId             String
+  tripId             String
+  boardingStationId  String?
+  alightingStationId String?
+  contactName        String
+  contactPhone       String
+  ticketCount        Int
+  totalAmountCents   Int
+  payStatus          String    @default("UNPAID") // UNPAID | PENDING | PAID | CLOSED
+  orderStatus        String    @default("PENDING_PAYMENT") // PENDING_PAYMENT | PAID | COMPLETED | CLOSED
+  expiresAt          DateTime?
+  paidAt             DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  line     Line     @relation(fields: [lineId], references: [id], onDelete: Restrict)
+  trip     Trip     @relation(fields: [tripId], references: [id], onDelete: Restrict)
+  tickets  Ticket[]
+  payment  Payment?
+
+  @@index([userId, createdAt])
+  @@index([tripId])
+  @@index([contactPhone])
+  @@index([orderStatus])
+  @@map("orders")
+}
+
+model Ticket {
+  id            String    @id @default(cuid())
+  ticketNo      String    @unique
+  orderId       String
+  passengerName String
+  phone         String?
+  priceCents    Int
+  status        String    @default("UNUSED") // UNUSED | CHECKED_IN | CANCELLED
+  checkCode     String    @unique
+  checkedAt     DateTime?
+  checkedBy     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  checkIn CheckIn?
+
+  @@index([orderId])
+  @@index([status])
+  @@map("tickets")
+}
+
+model Payment {
+  id            String    @id @default(cuid())
+  paymentNo     String    @unique
+  orderId       String    @unique
+  outTradeNo    String    @unique
+  transactionId String?   @unique
+  amountCents   Int
+  status        String    @default("PENDING") // PENDING | PAID | FAILED | CLOSED
+  rawNotify     Json?
+  paidAt        DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("payments")
+}
+
+model Checker {
+  id           String   @id @default(cuid())
+  phone        String   @unique
+  passwordHash String
+  name         String
+  openid       String?  @unique
+  status       String   @default("ACTIVE") // ACTIVE | INACTIVE
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  checkIns CheckIn[]
+
+  @@map("checkers")
+}
+
+model CheckIn {
+  id        String   @id @default(cuid())
+  ticketId  String   @unique
+  tripId    String
+  checkerId String
+  method    String   @default("QR") // QR | MANUAL
+  checkedAt DateTime @default(now())
+
+  ticket  Ticket  @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  trip    Trip    @relation(fields: [tripId], references: [id], onDelete: Restrict)
+  checker Checker @relation(fields: [checkerId], references: [id], onDelete: Restrict)
+
+  @@index([tripId, checkedAt])
+  @@index([checkerId])
+  @@map("check_ins")
+}

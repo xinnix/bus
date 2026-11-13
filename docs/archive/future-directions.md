@@ -139,12 +139,12 @@ Web 端采用 Ant Design 还是保持纯 Tailwind 是一个架构决策。当前
 
 ### 现状
 
-| 包             | strict   | noImplicitAny | strictNullChecks |
-| -------------- | -------- | ------------- | ---------------- |
-| `@loom/shared` | ✅ true  | ✅            | ✅               |
-| `apps/api`     | ❌ false | ❌ false      | ❌ false         |
-| `apps/admin`   | ❌ false | ❌ false      | ❌ false         |
-| `apps/web`     | ✅ true  | —             | —                |
+| 包               | strict   | noImplicitAny | strictNullChecks |
+| ---------------- | -------- | ------------- | ---------------- |
+| `@sanqin/shared` | ✅ true  | ✅            | ✅               |
+| `apps/api`       | ❌ false | ❌ false      | ❌ false         |
+| `apps/admin`     | ❌ false | ❌ false      | ❌ false         |
+| `apps/web`       | ✅ true  | —             | —                |
 
 ### 建议
 

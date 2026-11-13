@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { useAuth } from '../auth/AuthContext';
-import type { PermissionKey } from '@loom/shared';
+import type { PermissionKey } from '@sanqin/shared';
 
 interface PermissionGuardProps {
   /** 权限字符串（推荐用法）例如 Permission.role.create */

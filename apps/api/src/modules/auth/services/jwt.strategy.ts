@@ -47,6 +47,25 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         username: user.username,
         type: 'user',
       };
+    } else if (userType === 'checker') {
+      // 核销员：从 Checker 表查找
+      const checker = await this.prisma.checker.findUnique({
+        where: { id: payload.sub },
+      });
+
+      if (!checker) {
+        throw new Error('核销员不存在');
+      }
+      if (checker.status !== 'ACTIVE') {
+        throw new Error('核销员已被停用');
+      }
+
+      return {
+        id: checker.id,
+        name: checker.name,
+        phone: checker.phone,
+        type: 'checker',
+      };
     } else {
       // 管理端用户：从 Admin 表查找
       const admin = await this.prisma.admin.findUnique({

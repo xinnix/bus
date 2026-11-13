@@ -134,8 +134,8 @@ pnpm install
 **类型安全链路：**
 
 ```
-schema.prisma ──► Prisma Client ──► AppRouter ──► @loom/shared ──► tRPC Client
-     (SSOT)        (@loom/db)     (tRPC)       (Zod Schema)       (Admin/Miniapp)
+schema.prisma ──► Prisma Client ──► AppRouter ──► @sanqin/shared ──► tRPC Client
+     (SSOT)        (@sanqin/db)     (tRPC)       (Zod Schema)       (Admin/Miniapp)
 ```
 
 **双身份模型：**
@@ -167,7 +167,7 @@ JWT `type` 字段在网关层自动隔离跨身份访问。规格详见 [PRD F1 
 | 命令          | 作用                                                        |
 | ------------- | ----------------------------------------------------------- |
 | `/db-migrate` | **数据库迁移** — 生成迁移 SQL + 应用 + Prisma Client + Seed |
-| `/sync`       | **同步工作区** — Prisma Generate + 构建 @loom/shared        |
+| `/sync`       | **同步工作区** — Prisma Generate + 构建 @sanqin/shared      |
 | `/enum-sync`  | **枚举同步** — Prisma enum → Zod enum → 前端 Select options |
 | `/seed-data`  | **生成假数据** — 快速填充开发和测试数据                     |
 
@@ -224,7 +224,7 @@ JWT `type` 字段在网关层自动隔离跨身份访问。规格详见 [PRD F1 
 ```bash
 # 手动修改 infra/database/prisma/schema.prisma
 /db-migrate         # 生成迁移 → 应用 → 生成 Prisma Client → Seed
-/sync               # 重新构建 @loom/shared（Zod Schema 对齐）
+/sync               # 重新构建 @sanqin/shared（Zod Schema 对齐）
 /type-check         # 验证类型一致性
 /ship               # 提交推送（CI 自动部署迁移）
 ```
@@ -363,7 +363,7 @@ const fields: FieldDefinition[] = [
 | **Web**      | Next.js 15 + Tailwind CSS v4 + REST | 用户端 Web 应用            |
 | **Landing**  | Next.js 15 + Tailwind CSS v4 (SSG)  | 落地页 / 营销站            |
 | **Miniapp**  | uni-app + Vue 3 + TypeScript        | 微信小程序                 |
-| **Shared**   | Zod + `@loom/shared`                | 验证 Schema + 类型注册中心 |
+| **Shared**   | Zod + `@sanqin/shared`              | 验证 Schema + 类型注册中心 |
 | **Monorepo** | pnpm 10.12 Workspace                | 统一管理                   |
 | **Dev**      | Claude Code + Husky + Commitlint    | AI 辅助 + 代码规范         |
 
@@ -389,7 +389,7 @@ loom/
 │   └── miniapp/                # uni-app 微信小程序
 ├── infra/
 │   ├── database/               # Prisma Schema + Client + Seed + Migrations
-│   └── shared/                 # @loom/shared（Zod Schema + 类型定义）
+│   └── shared/                 # @sanqin/shared（Zod Schema + 类型定义）
 ├── packages/
 │   └── create-loom/            # npx 脚手架安装包
 ├── .claude/                    # Claude Code 技能 + Agent + 命令配置
@@ -477,7 +477,7 @@ docker compose -f docker-compose.prod.yml up -d
 | tRPC 路由   | 与 Prisma 模型名对齐                    |
 | Zod Schema  | `CreateXxxSchema` / `UpdateXxxSchema`   |
 
-**SSOT 原则：** `schema.prisma` 是唯一模型源，`infra/shared` 是唯一验证源，所有端共享 `@loom/shared` 类型。
+**SSOT 原则：** `schema.prisma` 是唯一模型源，`infra/shared` 是唯一验证源，所有端共享 `@sanqin/shared` 类型。
 
 **数据隔离：** Admin 可访问全量数据，User 仅能访问自己的数据（`where: { userId: user.id }`），`createdById` / `updatedById` 从 JWT 自动注入。
 

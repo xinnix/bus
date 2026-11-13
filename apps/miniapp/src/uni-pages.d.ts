@@ -5,29 +5,27 @@
 
 type _LocationUrl =
   "/pages/index" |
-  "/pages/hi" |
   "/pages/login" |
-  "/pages/agreement/privacy-policy" |
-  "/pages/agreement/user-agreement" |
-  "/pages/coupon/detail" |
-  "/pages/coupon/list" |
-  "/pages/handler/index" |
-  "/pages/handler/records" |
-  "/pages/merchant/detail" |
-  "/pages/merchant/list" |
-  "/pages/news/detail" |
+  "/pages/trips/list" |
+  "/pages/orders/create" |
+  "/pages/tickets/index" |
+  "/pages/orders/index" |
+  "/pages/orders/detail" |
+  "/pages/checker/index" |
   "/pages/profile/index" |
-  "/pages/qrcode/index" |
-  "/pages/redemption/confirm" |
-  "/pages/scan/index" |
-  "/pages/wallet/index";
+  "/pages/agreement/user-agreement" |
+  "/pages/agreement/privacy-policy" |
+  "/pages/agents/index" |
+  "/pages/agents/chat";
 
 interface NavigateToOptions {
   url: _LocationUrl;
 }
 interface RedirectToOptions extends NavigateToOptions {}
 
-interface SwitchTabOptions {}
+interface SwitchTabOptions {
+  url: '/pages/index' | '/pages/tickets/index' | '/pages/profile/index';
+}
 
 type ReLaunchOptions = NavigateToOptions | SwitchTabOptions;
 

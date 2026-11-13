@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { BaseService } from '../../common/base.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { computeNextRunAt } from './compute-next-run';
-import type { AgentTriggerSchedule } from '@loom/shared';
+import type { AgentTriggerSchedule } from '@sanqin/shared';
 
 /**
  * AgentTrigger 管理（ADR-009）。

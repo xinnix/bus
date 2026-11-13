@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@ant-design/icons": "^6.3.2",
-    "@loom/shared": "workspace:*",
+    "@sanqin/shared": "workspace:*",
     "@refinedev/antd": "^6.0.3",
     "@refinedev/core": "^5.0.12",
     "@tanstack/react-query": "^5.101.2",
@@ -56,6 +56,6 @@
     "typescript-eslint": "^8.64.0",
     "vite": "^8.1.5",
     "vitest": "^4.1.10",
-    "@loom/api": "workspace:*"
+    "@sanqin/api": "workspace:*"
   }
 }

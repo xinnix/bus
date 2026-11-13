@@ -1,121 +1,88 @@
 import { defineUniPages } from '@uni-helper/vite-plugin-uni-pages';
 
+/**
+ * 小程序/H5 页面登记（唯一真理源，全量列出）。
+ * 注意：@uni-helper/vite-plugin-uni-pages 的 definePage 宏只提供页面级 meta，
+ * 路由注册以本文件为准；mergePages 已关闭（vite.config.ts），残留 pages.json 不会回流。
+ */
 export default defineUniPages({
   pages: [
     {
       path: 'pages/index',
       type: 'home',
-    },
-    {
-      path: 'pages/hi',
-      type: 'page',
-      layout: 'home',
+      style: {
+        navigationStyle: 'custom',
+        backgroundColor: '#F5FAFF',
+        navigationBarTitleText: '桥水出行',
+      },
     },
     {
       path: 'pages/login',
       type: 'page',
-    },
-    {
-      path: 'pages/coupon/detail',
-      type: 'page',
       style: {
-        backgroundColor: '#F5FAFF',
-        navigationStyle: 'default',
-        navigationBarBackgroundColor: '#F5FAFF',
-        navigationBarTextStyle: 'black',
-        navigationBarTitleText: '优惠券详情',
-      },
-    },
-    {
-      path: 'pages/coupon/list',
-      type: 'page',
-    },
-    {
-      path: 'pages/handler/index',
-      type: 'page',
-      style: {
-        backgroundColor: '#F5FAFF',
-        navigationStyle: 'default',
-        navigationBarBackgroundColor: '#F5FAFF',
-        navigationBarTextStyle: 'black',
-        navigationBarTitleText: '核销员工作台',
-        enablePullDownRefresh: true,
-      },
-    },
-    {
-      path: 'pages/handler/records',
-      type: 'page',
-      style: {
-        backgroundColor: '#F5FAFF',
-        navigationStyle: 'default',
-        navigationBarBackgroundColor: '#F5FAFF',
-        navigationBarTextStyle: 'black',
-        navigationBarTitleText: '核销记录',
-        enablePullDownRefresh: true,
-      },
-    },
-    {
-      path: 'pages/merchant/detail',
-      type: 'page',
-    },
-    {
-      path: 'pages/merchant/list',
-      type: 'page',
-    },
-    {
-      path: 'pages/news/detail',
-      type: 'page',
-      style: {
+        navigationStyle: 'custom',
         backgroundColor: '#F5FAFF',
       },
+    },
+    {
+      path: 'pages/trips/list',
+      type: 'page',
+      style: { navigationBarTitleText: '选择班次', backgroundColor: '#F5FAFF' },
+    },
+    {
+      path: 'pages/orders/create',
+      type: 'page',
+      style: { navigationBarTitleText: '确认订单', backgroundColor: '#F5FAFF' },
+    },
+    {
+      path: 'pages/tickets/index',
+      type: 'page',
+      style: { navigationBarTitleText: '我的车票', backgroundColor: '#F5FAFF' },
+    },
+    {
+      path: 'pages/orders/index',
+      type: 'page',
+      style: { navigationBarTitleText: '我的订单', backgroundColor: '#F5FAFF' },
+    },
+    {
+      path: 'pages/orders/detail',
+      type: 'page',
+      style: { navigationBarTitleText: '电子票', backgroundColor: '#F5FAFF' },
+    },
+    {
+      path: 'pages/checker/index',
+      type: 'page',
+      style: { navigationBarTitleText: '核销检票', backgroundColor: '#F5FAFF' },
     },
     {
       path: 'pages/profile/index',
       type: 'page',
       style: {
+        navigationStyle: 'custom',
         backgroundColor: '#F5FAFF',
-        navigationStyle: 'default',
-        navigationBarBackgroundColor: '#F5FAFF',
-        navigationBarTextStyle: 'black',
-        navigationBarTitleText: '核销二维码',
       },
     },
     {
-      path: 'pages/qrcode/index',
+      path: 'pages/agreement/user-agreement',
       type: 'page',
       style: {
-        backgroundColor: '#F5FAFF',
         navigationStyle: 'default',
+        backgroundColor: '#F5FAFF',
         navigationBarBackgroundColor: '#F5FAFF',
         navigationBarTextStyle: 'black',
-        navigationBarTitleText: '优惠卷二维码',
+        navigationBarTitleText: '用户协议',
       },
     },
     {
-      path: 'pages/redemption/confirm',
+      path: 'pages/agreement/privacy-policy',
       type: 'page',
       style: {
-        backgroundColor: '#F5FAFF',
         navigationStyle: 'default',
+        backgroundColor: '#F5FAFF',
         navigationBarBackgroundColor: '#F5FAFF',
         navigationBarTextStyle: 'black',
-        navigationBarTitleText: '核销确认',
+        navigationBarTitleText: '隐私政策',
       },
-    },
-    {
-      path: 'pages/scan/index',
-      type: 'page',
-      style: {
-        backgroundColor: '#F5FAFF',
-        navigationStyle: 'default',
-        navigationBarBackgroundColor: '#F5FAFF',
-        navigationBarTextStyle: 'black',
-        navigationBarTitleText: '扫码核销',
-      },
-    },
-    {
-      path: 'pages/wallet/index',
-      type: 'page',
     },
     {
       path: 'pages/agents/index',
@@ -140,6 +107,32 @@ export default defineUniPages({
       },
     },
   ],
+  tabBar: {
+    color: '#7a8b9a',
+    selectedColor: '#00aeef',
+    backgroundColor: '#ffffff',
+    borderStyle: 'white',
+    list: [
+      {
+        pagePath: 'pages/index',
+        text: '购票',
+        iconPath: 'static/tab/ticket-gray.png',
+        selectedIconPath: 'static/tab/ticket-active.png',
+      },
+      {
+        pagePath: 'pages/tickets/index',
+        text: '车票',
+        iconPath: 'static/tab/pass-gray.png',
+        selectedIconPath: 'static/tab/pass-active.png',
+      },
+      {
+        pagePath: 'pages/profile/index',
+        text: '我的',
+        iconPath: 'static/tab/user-gray.png',
+        selectedIconPath: 'static/tab/user-active.png',
+      },
+    ],
+  },
   globalStyle: {
     backgroundColor: '@bgColor',
     backgroundColorBottom: '@bgColorBottom',
@@ -147,7 +140,7 @@ export default defineUniPages({
     backgroundTextStyle: '@bgTxtStyle',
     navigationBarBackgroundColor: '#000000',
     navigationBarTextStyle: '@navTxtStyle',
-    navigationBarTitleText: 'Vitesse-Uni',
-    navigationStyle: 'custom',
+    navigationBarTitleText: '桥水出行',
+    navigationStyle: 'default',
   },
 });

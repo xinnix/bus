@@ -5,8 +5,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@loom/shared": ["../../infra/shared/src"],
-      "@loom/shared/*": ["../../infra/shared/src/*"]
+      "@sanqin/shared": ["../../infra/shared/src"],
+      "@sanqin/shared/*": ["../../infra/shared/src/*"]
     },
     "types": [
       "@dcloudio/types",

@@ -475,7 +475,7 @@ function deleteModule(moduleName: string, dryRun: boolean): void {
     console.log(
       `   1. 迁移: cd infra/database && npx prisma migrate dev --name drop_${moduleName} && npx prisma generate`,
     );
-    console.log('   2. 重建共享包: pnpm --filter @loom/shared build');
+    console.log('   2. 重建共享包: pnpm --filter @sanqin/shared build');
     console.log('   3. 重启后端和前端服务\n');
   }
 }

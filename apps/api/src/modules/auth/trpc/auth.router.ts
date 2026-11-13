@@ -9,8 +9,8 @@ import * as bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
 import { z } from 'zod';
 
-// 🔥 使用 @loom/shared 的 Zod schema
-import { LoginSchema, RegisterSchema, RefreshTokenSchema } from '@loom/shared';
+// 🔥 使用 @sanqin/shared 的 Zod schema
+import { LoginSchema, RegisterSchema, RefreshTokenSchema } from '@sanqin/shared';
 
 // Helper functions
 function generateAccessToken(

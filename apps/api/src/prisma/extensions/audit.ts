@@ -1,4 +1,4 @@
-import { Prisma } from '@loom/database';
+import { Prisma } from '@sanqin/database';
 
 let currentUserId: string | undefined;
 

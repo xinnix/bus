@@ -14,8 +14,8 @@ const TestSchemas = {
   update: TestSchema.partial(),
 };
 
-function createTestCaller(router: any, user: any = null) {
-  const prisma = createPrismaMock(['todo']);
+function createTestCaller(router: any, user: any = null, models: string[] = ['todo']) {
+  const prisma = createPrismaMock(models);
   const ctx = {
     prisma,
     fileStorage: {
@@ -96,19 +96,37 @@ describe('createCrudRouter', () => {
       expect(res).toEqual(created);
     });
 
-    it('injects createdById from ctx.user', async () => {
-      const result = createTestCaller(router, { id: 'user-1', type: 'admin' });
-      caller = result.caller;
-      prisma = result.prisma;
+    it('injects createdById only for models with audit columns', async () => {
+      // Agent 模型带 createdById/updatedById 审计列（真实 schema dmmf）
+      const agentSchemas = {
+        create: z.object({ name: z.string() }),
+        update: z.object({ name: z.string().optional() }),
+      };
+      const agentRouter = createCrudRouter('agent', agentSchemas);
+      const result = createTestCaller(agentRouter, { id: 'user-1', type: 'admin' }, ['agent']);
+      const agentCaller = result.caller;
+      const agentPrisma = result.prisma;
 
-      prisma.todo.create.mockResolvedValue({ id: '1' });
+      agentPrisma.agent.create.mockResolvedValue({ id: '1' });
 
-      await caller.create({ data: { name: 'Test' } });
-      expect(prisma.todo.create).toHaveBeenCalledWith(
+      await agentCaller.create({ data: { name: 'Test' } });
+      expect(agentPrisma.agent.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ createdById: 'user-1', updatedById: 'user-1' }),
         }),
       );
+
+      // todo（schema 已无此模型）没有审计列 → 不注入
+      const todoResult = createTestCaller(router, { id: 'user-1', type: 'admin' });
+      const todoCaller = todoResult.caller;
+      const todoPrisma = todoResult.prisma;
+
+      todoPrisma.todo.create.mockResolvedValue({ id: '1' });
+
+      await todoCaller.create({ data: { name: 'Test' } });
+      const createdData = todoPrisma.todo.create.mock.calls[0][0].data;
+      expect(createdData.createdById).toBeUndefined();
+      expect(createdData.updatedById).toBeUndefined();
     });
 
     it('passes non-relation fields through unchanged', async () => {

@@ -176,11 +176,18 @@ export class WechatService {
    *
    * @param sceneId 场景值 ID（最多 32 个可见字符）
    * @param page 扫码后跳转的页面路径（必须与 app.json 中的路径一致，不带 / 前缀）
+   * @param options.envVersion 要打开的小程序版本 release/trial/develop（默认 release）
+   * @param options.checkPath 是否校验 page 在对应版本存在（默认 true；未发布版本联调时传 false）
    * @returns 小程序码图片 Buffer
    */
   async generateMiniProgramCode(
     sceneId: string,
     page: string = 'pages/coupon/detail',
+    options: {
+      envVersion?: 'release' | 'trial' | 'develop';
+      checkPath?: boolean;
+      width?: number;
+    } = {},
   ): Promise<Buffer> {
     const accessToken = await this.getAccessToken();
 
@@ -188,10 +195,12 @@ export class WechatService {
     const requestBody = {
       scene: sceneId, // 场景值 ID（最多 32 个可见字符）
       page, // 扫码后跳转的页面（必须与 app.json 中的路径一致）
-      width: 430, // 小程序码宽度
+      width: options.width ?? 430, // 小程序码宽度
       auto_color: false,
       line_color: { r: 0, g: 0, b: 0 },
       is_hyaline: false, // 不透明背景
+      env_version: options.envVersion, // 不传由微信默认 release
+      check_path: options.checkPath, // 不传由微信默认 true
     };
 
     const url = `https://api.weixin.qq.com/wxa/getwxacodeunlimit?access_token=${accessToken}`;

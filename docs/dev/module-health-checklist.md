@@ -10,7 +10,7 @@
 ### 必选项
 
 - [ ] **Prisma Model** — 在 `schema.prisma` 中定义模型
-- [ ] **Zod Schema** — 在 `@loom/shared` 中定义 `Create{Name}Schema` 和 `Update{Name}Schema`
+- [ ] **Zod Schema** — 在 `@sanqin/shared` 中定义 `Create{Name}Schema` 和 `Update{Name}Schema`
 - [ ] **Service** — 继承 `BaseService<T>`（`services/{name}.service.ts`）
 - [ ] **tRPC Router** — 使用 `createCrudRouter` 或 `createCrudRouterWithCustom`（`trpc/{name}.router.ts`）
 - [ ] **Module 注册** — 在 `*.module.ts` 声明为 NestJS 模块
@@ -75,7 +75,7 @@ apps/admin/src/modules/{name}/
 
 ---
 
-## 共享层 · `@loom/shared`
+## 共享层 · `@sanqin/shared`
 
 - [ ] `{Name}Schema` — 完整模型 Zod Schema（用于详情展示）
 - [ ] `Create{Name}Schema` — 创建输入（必填字段 + 默认值）

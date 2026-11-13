@@ -20,12 +20,18 @@ export default defineConfig({
     {
       name: 'admin',
       testMatch: /admin-.*\.spec\.ts/,
-      use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:5173' },
+      use: {
+        ...devices['Desktop Chrome'],
+        baseURL: process.env.ADMIN_BASE_URL || 'http://localhost:5173',
+      },
     },
     {
       name: 'web',
       testMatch: /web-.*\.spec\.ts/,
-      use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:3002' },
+      use: {
+        ...devices['Desktop Chrome'],
+        baseURL: process.env.WEB_BASE_URL || 'http://localhost:3002',
+      },
     },
   ],
 });

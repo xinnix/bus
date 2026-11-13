@@ -2,7 +2,7 @@
  * AI 三层架构 YML 契约（Agent 编排文件 / 工具声明文件）
  *
  * R1：infra/shared 是唯一验证真理源——YML 在 api 端解析为普通对象后，
- * 由此处的 Zod schema 校验。yaml 依赖只存在于 @loom/api。
+ * 由此处的 Zod schema 校验。yaml 依赖只存在于 @sanqin/api。
  *
  * 演进原则（ADR-005）：复杂逻辑进工具或代码，永远不进 YML。
  * 模板变量仅支持 {{input.*}} 与 {{nodes.<id>.output}} 两种点路径，无控制流。

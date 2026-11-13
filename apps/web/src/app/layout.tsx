@@ -4,7 +4,7 @@ import { AuthProvider } from '@/providers/auth-provider';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Roundtable',
+  title: '三秦巴士',
   description: '用户端 Web 应用',
 };
 

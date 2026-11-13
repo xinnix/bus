@@ -3,7 +3,7 @@ import {
   SaveSettingGroupSchema,
   SETTING_GROUPS,
   Permission,
-} from '@loom/shared';
+} from '@sanqin/shared';
 import { router, permissionProcedure, getSettingsService } from '../../../trpc/trpc';
 
 /**

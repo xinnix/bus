@@ -4,6 +4,76 @@
 
 **登记规则**：每次改动必须在此登记——含用户可见变化的改动递增版本号（新能力 → 次版本号，修复 → 修订号），纯内部调整并入当前版本的「变更」组；条目按类型分组（新增/变更/修复/移除/安全），新版本在最上方。写法约束见 `docs/adr/010-changelog.md`。
 
+## [1.4.0] - 2026-11-13
+
+### 新增
+
+- 班次停售规则：发车时间已过 30 分钟停止售票。规则收敛在 `@sanqin/shared`（`TRIP_SALE_GRACE_MINUTES` / `isTripPurchasable`）：`POST /api/orders` 下单硬校验拒绝超时班次；班次列表接口每班次下发 `purchasable`，小程序「选择班次」页展示「已停售」标签并禁止选择（点击提示）。PRD F3 同步；集成测试新增停售拒绝用例（11/11）
+- 购票页乘车日期选择下限为当天（`picker :start`），不能选过去日期；日期默认值改本地时区格式化（原 `toISOString` 在东八区深夜会退回前一天）
+
+## [1.3.2] - 2026-11-13
+
+### 修复
+
+- 下单页票数选择错位：uni-app `picker` 单列 `change` 的 `detail.value` 是选中项**下标**而非数值，选「2 张」实际按 1 张下单（选 3→2、选 4→3）。改为按选项数组映射取值，合计金额同步修正
+
+## [1.3.1] - 2026-11-13
+
+### 修复
+
+- 订单「已完成」状态从未流转：schema 定义了 `COMPLETED` 但核销链路无任何赋值，已核销订单永远停在待出行。现核销事务内检查订单剩余未用票，全部核销/取消后自动从 `PAID` 流转 `COMPLETED`（仅从 PAID 流转，不覆盖关闭等态；集成测试补断言）；车票页「已完成」Tab 即为该状态，仅按订单完成态归类，票未核销即使过了发车时间也留在「待出行」
+
+## [1.3.0] - 2026-11-13
+
+### 新增
+
+- 电子票微信小程序码（backlog E17）：`GET /api/orders/:id/tickets/:ticketId/wxacode`（乘客 JWT + 订单归属校验）按票出图——scene=6 位核销码、page=核销页（`WXACODE_PAGE`）、目标版本 `WXACODE_ENV_VERSION`（release/trial/develop，发布前联调改 trial；`check_path` 固定 false 允许未发布出图）；`WxacodeService` 内存+磁盘（`apps/api/.cache/wxacode/`）双层缓存，每票只调一次微信 `getwxacodeunlimit`（返回实际为 JPEG，按魔数嗅探 dataURL MIME）。电子票页优先展示小程序码，接口失败静默回退本地 HMAC 矩阵码；核销页扫本小程序码带回 `path?scene=` 时自动按核销码核销（扫 HMAC 码/6 位码亦兼容，未识别提示手输）。微信「扫一扫」直达核验需小程序发布后对普通用户生效
+
+## [1.2.1] - 2026-11-13
+
+### 修复
+
+- 电子票二维码不显示（QR 区域空白，仅剩票号与核销码文字）：QrCode 子组件经 uni-app mp-weixin 编译后 props（`u-p`）运行时传递失效，组件内矩阵为空。改为电子票页内直算二维码矩阵（新增 `apps/miniapp/src/utils/qr.ts`，uqrcodejs 保留），模板直接渲染 0/1 格子——不再经过子组件 props 通道；格子尺寸按模块数自适应（总宽 480rpx），生成失败降级为提示出示核销码
+
+### 变更
+
+- 核销页预留「微信扫小程序码直达核验」挂点：`onLoad` 解析 `scene`（URL 编码，wxacode 预定承载核销码）与 `?code=` 参数，核销员身份就绪（免密登录/密码登录成功）后自动核销；小程序码后端出图（getwxacodeunlimit + scene=核销码）列入 backlog E17
+
+## [1.2.0] - 2026-11-13
+
+### 新增
+
+- 小程序新增「车票」tabbar 页（tabbar 扩为 购票/车票/我的 三项）：已购车票视角，页内「待出行（已支付）/ 已完成」过滤，卡片展示乘客、票状态（待使用/已核销/已取消）与核销码，点卡片直达电子票详情；「我的订单」页保留，仍看含待支付的全部订单
+
+## [1.1.0] - 2026-11-13
+
+### 新增
+
+- 核销员身份检查与绑定（手机号一致性）：管理端录入核销员（手机号+姓名），用户微信登录并绑定手机后，后端按手机号匹配自动回填 `openid` 完成绑定——`GET /api/checker/identity`（识别+绑定，限乘客 JWT）、`POST /api/checker/openid-login`（已绑定者免密签发核销员 JWT）；小程序登录后自动检查身份，首页对核销员展示「验票工作台」入口，进入核销页免密直达工作台（原手机号+密码登录保留为后备）
+
+## [1.0.0] - 2026-11-13
+
+### 新增
+
+- P0「买票 → 核销」最小闭环（PRD F1–F6，[P0 方案](docs/P0-买票核销最小闭环方案.md)）：Admin 线路/上下车点/班次模板/班次生成/订单/核销记录/核销员 7 页 + 订单详情；小程序微信登录、选站下单（Idempotency-Key 幂等 + 原子库存锁）、JSAPI 支付、电子票（HMAC 签名二维码含过期时间 + 6 位核销码）、我的订单（状态 Tab + 待支付重支付）；核销端登录/扫码/输码核销、防重复核销、按班次/日期查记录，接口限核销员 JWT
+- 订单超时自动关闭（每分钟，释放库存）；支付回调 transactionId 幂等 + 金额校验 + 原始报文留痕；「回调晚于订单关闭」竞态兜底（支付流水留痕、不重开订单，退款走 P0.5）
+- `GET /api/trips/:id` 班次详情接口（余票 + 上下车站点）
+- 测试三件套：ticket-token 单测 5 例；P0 集成测试 8 例（下单→支付→出票→核销闭环、50 并发抢 5 座不超卖、幂等键、QR 过期拒绝、超时关闭释放库存、已支付不关单、关闭后回调竞态、金额不符拒付）；Admin E2E 票务主路径（新建线路→删除 + 票务全页面可达），e2e baseURL 支持 `ADMIN_BASE_URL`/`WEB_BASE_URL` 覆盖
+- Seed：`pnpm db:seed`（seed-base.sql 直灌演示数据：2 条演示线路含返程、核销员、票务权限 p50–p81）；`pnpm db:migrate:test` + `./scripts/test-db.sh`（sanqin_bus_test 集成测试库迁移/灌数据）
+
+### 变更
+
+- 根 `pnpm test` 排除 e2e（对齐 CI 0.8.1 决策：e2e 需三服务 + 浏览器环境，走手动 `e2e.yml`）
+- 小程序页面登记改为 `pages.config.ts` 唯一真理源（uni-pages `mergePages: false`），并清理 Vitesse-Uni 脚手架残留页面与组件（hi/coupon/handler/merchant/news/qrcode/redemption/scan/wallet）；修复死页面因旧 `pages.json` 合并回流的问题
+- 我的订单支持状态筛选与待支付「去支付」；订单详情待支付/已关闭状态横幅提示；核销端会话独立存储 `checkerToken`（不再覆盖乘客登录态）；下单请求携带 Idempotency-Key
+- `POST /api/orders` 返回结构统一为扁平订单（含 tickets），幂等命中与新建一致
+
+### 修复
+
+- tRPC 通用 CRUD 对无 `createdById`/`updatedById` 列的模型盲目注入审计字段导致创建 500（P0 票务各模型均中招）；且 Prisma 7 已移除 `_dmmf`，update 侧旧守卫静默失效。改为按 `Prisma.dmmf.datamodel` 探测字段按需注入（E2E 发现）
+- 电子票二维码 token 增加过期时间校验（原 token 永不过期），密钥改读 `TICKET_TOKEN_SECRET`/`JWT_SECRET`
+- 核销 verify/records 原先接受任意类型 JWT（乘客 token 可达并 500），现强制 `type=checker`
+
 ## [0.9.0] - 2026-11-04
 
 ### 新增
@@ -25,7 +95,7 @@
 ### 修复
 
 - `.scaffold-config.json` 格式撕裂：`init-project.sh` 曾生成裸数组 `[...]`，而 CI（`jq '.apps'` → null，deploy 重启列表静默为空）与 `toggle-app.sh`（python 对 list 调 `.get` 报错）都按 `{"apps":[...]}` 包装结构读取。统一为包装格式（根因修复 init-project.sh 生成逻辑），CI 解析兼容两种历史格式，`toggle-app.sh` 默认创建列表同步移除已迁 Pages 的 landing
-- CI test 长期红根因：`@loom/e2e` 在 CI 无浏览器且无 API/Admin/Web/PostgreSQL 服务环境，秒级失败并因 pnpm 递归 fail-fast 连带 api/admin/shared 单测一并中止。test job 排除 e2e 只跑单测（快车道），新建 `e2e.yml`（手动触发）自建完整环境跑 E2E（PG 18 service + migrate + SQL seed + 三服务 + Playwright chromium，失败时上传报告与日志）
+- CI test 长期红根因：`@sanqin/e2e` 在 CI 无浏览器且无 API/Admin/Web/PostgreSQL 服务环境，秒级失败并因 pnpm 递归 fail-fast 连带 api/admin/shared 单测一并中止。test job 排除 e2e 只跑单测（快车道），新建 `e2e.yml`（手动触发）自建完整环境跑 E2E（PG 18 service + migrate + SQL seed + 三服务 + Playwright chromium，失败时上传报告与日志）
 - E2E 环境搭建三处修正：seed-base.sql 的 users 段幂等改用裸 `ON CONFLICT`（users.email 无唯一约束，历史写法在全新库上报错）；API 探活弃用不存在的 `/health` 路由（deployment.md 文档同步修正）；dev server 探活判据改为「双栈（127.0.0.1/[::1]）任一有 HTTP 响应即就绪」（web 无根路由恒 404，且 localhost 绑定栈随 runner 漂移）
 
 ## [0.8.0] - 2026-11-04

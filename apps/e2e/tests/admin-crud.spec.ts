@@ -49,14 +49,3 @@ test.describe('Admin LlmConfig CRUD 主路径（E1）', () => {
     await expect(page.getByRole('cell', { name: newName })).toHaveCount(0);
   });
 });
-
-test.describe('Admin Todo 只读路径（E1）', () => {
-  test('登录 → 列表可见且无创建入口（用户端数据语义）', async ({ page }) => {
-    await login(page);
-
-    await page.goto('/todos');
-    await expect(page.getByRole('heading', { name: 'Todo 示例管理' })).toBeVisible();
-    // Todo 是用户端数据（REST 注入 userId），Admin 不提供创建入口
-    await expect(page.getByRole('button', { name: /新建/ })).toHaveCount(0);
-  });
-});

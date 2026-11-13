@@ -1,4 +1,4 @@
-import { Permission } from '@loom/shared';
+import { Permission } from '@sanqin/shared';
 import { router, permissionProcedure, publicProcedure } from '../../../trpc/trpc';
 import { z } from 'zod';
 import * as bcrypt from 'bcryptjs';

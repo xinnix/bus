@@ -7,7 +7,7 @@ import jwt from 'jsonwebtoken';
 import { INestApplication } from '@nestjs/common';
 import { BusinessException } from '../core/exceptions';
 import { businessExceptionToTRPCError } from '../core/middleware/trpc-error-formatter';
-import type { PermissionKey } from '@loom/shared';
+import type { PermissionKey } from '@sanqin/shared';
 
 // Global service references
 let prismaServiceInstance: PrismaService | null = null;

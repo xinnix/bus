@@ -1,4 +1,4 @@
-import type { AgentTriggerSchedule } from '@loom/shared';
+import type { AgentTriggerSchedule } from '@sanqin/shared';
 
 /**
  * 受限调度的下次执行时间纯函数（导出供单测，ADR-009）：

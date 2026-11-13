@@ -15,11 +15,15 @@ import { PermissionModule } from './modules/permission/module';
 import { UploadModule } from './modules/upload/module';
 import { WechatModule } from './modules/wechat/wechat.module';
 import { PaymentModule } from './modules/payment/module';
+import { LineModule } from './modules/line/module';
+import { StationModule } from './modules/station/module';
+import { TicketScheduleModule } from './modules/schedule/module';
+import { OrderModule } from './modules/order/module';
+import { CheckinModule } from './modules/checkin/module';
 import { AiAdminModule } from './modules/ai/module';
 import { AiModule } from './ai/ai.module';
 import { AgentTriggerModule } from './ai/agent-trigger/agent-trigger.module';
 import { WecomModule } from './modules/wecom/module';
-import { TodoModule } from './modules/todo/module';
 import { SettingsModule } from './modules/settings/settings.module';
 // 全局拦截器
 import { TransformInterceptor } from './core/interceptors/transform.interceptor';
@@ -53,9 +57,13 @@ import { SharedModule } from './shared/shared.module';
     UploadModule,
     WechatModule,
     PaymentModule,
+    LineModule,
+    StationModule,
+    TicketScheduleModule,
+    OrderModule,
+    CheckinModule,
     AiAdminModule,
     WecomModule,
-    TodoModule,
     SettingsModule,
   ],
   providers: [

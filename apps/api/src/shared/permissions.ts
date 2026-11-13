@@ -1,5 +1,5 @@
 // apps/api/src/shared/permissions.ts
-import { User } from '@loom/shared';
+import { User } from '@sanqin/shared';
 
 /**
  * 基础权限检查工具

@@ -1,130 +1,225 @@
 <script setup lang="ts">
+import { computed, ref } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
-import { onMounted, ref } from 'vue';
-import { authApi } from '@/api/auth';
+import { lineApi, type Line } from '@/api/ticketing';
+import { useTopInset } from '@/composables/topInset';
+import { getCheckerIdentity, refreshCheckerIdentity } from '@/utils/checkerIdentity';
 
 definePage({
   type: 'home',
   style: {
-    enablePullDownRefresh: true,
+    navigationStyle: 'custom',
     backgroundColor: '#F5FAFF',
+    navigationBarTitleText: '桥水出行',
   },
 });
 
-const statusBarHeight = ref(0);
-const isLoggedIn = ref(false);
-const userInfo = ref<any>(null);
-
-onMounted(() => {
-  const systemInfo = uni.getSystemInfoSync();
-  statusBarHeight.value = systemInfo.statusBarHeight || 0;
-});
+const { topInset } = useTopInset();
+// topInset 是 ComputedRef，模板字符串里 .value 拼接
+// hero 上移填满状态栏/胶囊区，品牌色一直延伸到屏幕顶端
+const heroStyle = computed(() => `padding-top: ${topInset.value + 24}px;`);
+const lines = ref<Line[]>([]);
+/** 本地日期（toISOString 在东八区深夜会退回前一天，这里按本地时区格式化） */
+function fmtLocalDate(d: Date): string {
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${month}-${day}`;
+}
+const today = fmtLocalDate(new Date());
+const date = ref(today);
+const loading = ref(false);
+// 核销员身份：storage 先行渲染，onShow 静默刷新（覆盖登录早于绑定/本功能上线的场景）
+const isChecker = ref(!!getCheckerIdentity());
 
 onShow(async () => {
-  const token = uni.getStorageSync('token');
-  isLoggedIn.value = !!token;
-
-  if (token) {
-    try {
-      const res = await authApi.getProfile();
-      if (res.data) {
-        userInfo.value = res.data;
-        uni.setStorageSync('userInfo', res.data);
-      }
-    } catch (error) {
-      console.error('获取用户信息失败:', error);
-    }
+  loading.value = true;
+  if (uni.getStorageSync('token')) {
+    refreshCheckerIdentity().then((checker) => {
+      isChecker.value = !!checker;
+    });
+  } else {
+    isChecker.value = false;
+  }
+  try {
+    const res = await lineApi.list();
+    lines.value = res.data || [];
+  } catch (e) {
+    uni.showToast({ title: '线路加载失败', icon: 'none' });
+  } finally {
+    loading.value = false;
   }
 });
 
-function goToLogin() {
-  uni.navigateTo({ url: '/pages/login' });
+function onDateChange(e: any) {
+  date.value = e.detail.value;
 }
 
-function goToProfile() {
-  uni.navigateTo({ url: '/pages/profile/index' });
+function openChecker() {
+  uni.navigateTo({ url: '/pages/checker/index' });
+}
+
+function openLine(line: Line) {
+  uni.navigateTo({
+    url: `/pages/trips/list?lineId=${line.id}&date=${date.value}`,
+  });
 }
 </script>
 
 <template>
-  <view class="page-root">
-    <!-- TopAppBar -->
-    <view
-      class="top-bar-bg sticky top-0 z-50 w-full flex items-center justify-between px-4 py-3"
-      :style="{ paddingTop: `${statusBarHeight}px` }"
-    >
-      <image class="logo-image" src="/static/logo.png" mode="aspectFit" />
-      <view v-if="isLoggedIn" class="flex items-center gap-2" @click="goToProfile">
-        <text class="text-sm text-on-surface font-medium">{{ userInfo?.username || '用户' }}</text>
-      </view>
-      <view v-else @click="goToLogin">
-        <text class="text-sm text-primary font-bold">登录</text>
+  <view class="page">
+    <view class="hero" :style="heroStyle">
+      <text class="brand">桥水出行</text>
+      <text class="slogan">安全 · 舒适 · 直达</text>
+      <view class="date-row">
+        <text class="date-label">乘车日期</text>
+        <picker mode="date" :value="date" :start="today" @change="onDateChange">
+          <view class="date-value">{{ date }} ▾</view>
+        </picker>
       </view>
     </view>
 
-    <!-- Welcome Section -->
-    <view class="px-4 py-8">
-      <view class="welcome-card rounded-xl p-6 shadow-sm">
-        <text class="mb-2 block text-2xl text-on-surface font-bold">Loom</text>
-        <text class="block text-sm text-on-surface-variant">全栈管理系统脚手架，开箱即用</text>
-        <view class="mt-4 flex gap-2">
-          <view v-if="!isLoggedIn" class="rounded-lg bg-primary px-4 py-2" @click="goToLogin">
-            <text class="text-sm text-white font-bold">开始使用</text>
-          </view>
-          <view v-if="isLoggedIn" class="rounded-lg bg-primary px-4 py-2" @click="goToProfile">
-            <text class="text-sm text-white font-bold">个人中心</text>
-          </view>
-        </view>
+    <!-- 核销员身份入口：仅绑定了核销员身份的用户可见 -->
+    <view v-if="isChecker" class="checker-entry" @tap="openChecker">
+      <text class="checker-entry-icon">🎫</text>
+      <view class="checker-entry-main">
+        <text class="checker-entry-title">验票工作台</text>
+        <text class="checker-entry-sub">扫码 / 核销码核销乘客车票</text>
       </view>
+      <text class="checker-entry-arrow">›</text>
     </view>
 
-    <!-- Tech Stack -->
-    <view class="px-4">
-      <text class="mb-3 block text-lg text-on-surface font-bold">技术栈</text>
-      <view class="grid grid-cols-2 gap-3">
-        <view
-          v-for="tech in [
-            { name: 'NestJS', desc: '后端 API' },
-            { name: 'tRPC', desc: '类型安全' },
-            { name: 'Prisma', desc: 'ORM' },
-            { name: 'React + Refine', desc: '管理后台' },
-            { name: 'Ant Design', desc: 'UI 组件库' },
-            { name: 'uni-app', desc: '小程序' },
-          ]"
-          :key="tech.name"
-          class="tech-card rounded-lg p-3 shadow-sm"
-        >
-          <text class="block text-sm text-on-surface font-bold">{{ tech.name }}</text>
-          <text class="text-xs text-on-surface-variant">{{ tech.desc }}</text>
+    <view class="section-title">选择线路</view>
+    <view v-if="loading" class="empty">加载中...</view>
+    <view v-else-if="lines.length === 0" class="empty">暂无可售线路</view>
+    <view v-else class="line-list">
+      <view v-for="line in lines" :key="line.id" class="line-card" @tap="openLine(line)">
+        <view class="line-main">
+          <text class="line-name">{{ line.name }}</text>
+          <text class="line-sub">{{ line.startCity }} → {{ line.endCity }}</text>
         </view>
+        <text class="line-arrow">›</text>
       </view>
     </view>
   </view>
 </template>
 
-<style lang="scss" scoped>
-.page-root {
+<style scoped>
+.page {
   min-height: 100vh;
-  background-color: #f5faff;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #f5faff;
+  padding-bottom: 40rpx;
 }
-
-.top-bar-bg {
-  background: rgba(245, 250, 255, 0.95);
+.hero {
+  /* 品牌渐变 + 底部圆角外扩：与浅色内容区柔和衔接，避免硬切 */
+  background: linear-gradient(160deg, #1f4e79 0%, #2f7ab8 70%, #6aa6d8 100%);
+  padding: 40rpx 36rpx 96rpx;
+  /* 顶部 padding 由 heroStyle 按安全区动态注入 */
+  margin: 0 0 24rpx 0;
+  color: #fff;
+  border-radius: 0 0 56rpx 56rpx;
+  box-shadow: 0 12rpx 32rpx rgba(31, 78, 121, 0.18);
 }
-
-.logo-image {
-  width: 200rpx;
-  height: 80rpx;
+.brand {
+  display: block;
+  font-size: 48rpx;
+  font-weight: 700;
+  letter-spacing: 4rpx;
 }
-
-.welcome-card {
-  background: rgba(255, 255, 255, 0.95);
-  border: 1rpx solid rgba(189, 200, 209, 0.2);
+.slogan {
+  display: block;
+  margin-top: 10rpx;
+  font-size: 24rpx;
+  opacity: 0.8;
 }
-
-.tech-card {
-  background: rgba(255, 255, 255, 0.9);
-  border: 1rpx solid rgba(189, 200, 209, 0.2);
+.date-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 40rpx;
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 16rpx;
+  padding: 20rpx 24rpx;
+}
+.date-label {
+  font-size: 26rpx;
+  opacity: 0.85;
+}
+.date-value {
+  font-size: 28rpx;
+  font-weight: 600;
+}
+.section-title {
+  margin: 36rpx 36rpx 16rpx;
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #1f2d3d;
+}
+.checker-entry {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  margin: 24rpx 24rpx 0;
+  background: #fff;
+  border-radius: 20rpx;
+  padding: 28rpx 24rpx;
+  box-shadow: 0 8rpx 24rpx rgba(31, 78, 121, 0.06);
+  border: 1rpx solid rgba(31, 78, 121, 0.08);
+}
+.checker-entry-icon {
+  font-size: 44rpx;
+}
+.checker-entry-main {
+  flex: 1;
+}
+.checker-entry-title {
+  display: block;
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #1f2d3d;
+}
+.checker-entry-sub {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: #7a8b9a;
+}
+.checker-entry-arrow {
+  font-size: 44rpx;
+  color: #b8c7d6;
+}
+.line-list {
+  margin: 0 24rpx;
+}
+.line-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #fff;
+  border-radius: 20rpx;
+  padding: 28rpx 24rpx;
+  margin-bottom: 18rpx;
+  box-shadow: 0 8rpx 24rpx rgba(31, 78, 121, 0.06);
+}
+.line-name {
+  display: block;
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #1f2d3d;
+}
+.line-sub {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: #7a8b9a;
+}
+.line-arrow {
+  font-size: 44rpx;
+  color: #b8c7d6;
+}
+.empty {
+  padding: 80rpx;
+  text-align: center;
+  color: #7a8b9a;
+  font-size: 26rpx;
 }
 </style>

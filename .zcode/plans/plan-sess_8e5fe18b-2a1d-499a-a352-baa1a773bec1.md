@@ -57,6 +57,6 @@ Landing（`apps/landing`，Next.js SSG 静态导出，GitHub Pages 部署）目�
 1. `pnpm build:landing`：构建通过，`apps/landing/out/changelog/index.html` 存在，产物 grep 无 `sponsor/赞助/ecosystem` 残留
 2. `NEXT_PUBLIC_BASE_PATH=/loom pnpm build:landing` 再跑一次，确认子路径链接正确
 3. 起 landing dev（port 3001）用浏览器截图目检：首页浅色效果、AI 板块、/changelog 渲染（9 个版本完整、分组徽章正确）
-4. `pnpm --filter @loom/landing lint` 通过
+4. `pnpm --filter @sanqin/landing lint` 通过
 
 不涉及提交；构建产物 push main 后由现有 `landing-pages.yml` workflow 自动发布 Pages。

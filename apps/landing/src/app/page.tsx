@@ -317,7 +317,7 @@ export default function LandingPage() {
 
             {/* 核心哲学副标题 */}
             <p className="mt-space-lg font-body-lg text-body-lg text-text-muted max-w-2xl mx-auto leading-relaxed">
-              Loom 意为织机，将 <span className="text-text-primary">AI Agent</span>
+              三秦巴士 意为织机，将 <span className="text-text-primary">AI Agent</span>
               、后端、前端与数据库精密编织为完整的全栈开发体验。
             </p>
 
@@ -458,7 +458,7 @@ export default function LandingPage() {
                     19 种预编译技能
                   </h3>
                   <p className="font-body-md text-body-md text-text-muted">
-                    从自动化 CRUD 生成到复杂的数据库迁移，Loom
+                    从自动化 CRUD 生成到复杂的数据库迁移，三秦巴士
                     提供了一系列原始技能库，在项目范围内扩展了 Claude 的核心能力。
                   </p>
                 </div>
@@ -729,7 +729,7 @@ export default function LandingPage() {
                 Weaving 编织 vs. Scaffolding 脚手架
               </h2>
               <p className="mt-2 font-body-md text-body-md text-text-muted">
-                传统单体脚手架与 Loom 确定性织机引擎的范式迁移。
+                传统单体脚手架与 三秦巴士 确定性织机引擎的范式迁移。
               </p>
             </div>
             <div className="w-full overflow-x-auto bg-surface-elevated/90 border border-border-subtle rounded-lg shadow-xl">
@@ -925,7 +925,7 @@ export default function LandingPage() {
                 </span>
               </div>
               <p className="font-body-md text-body-md text-text-muted">
-                © {new Date().getFullYear()} Loom Framework. 为自主智能体提供精准编织。
+                © {new Date().getFullYear()} 三秦巴士 Framework. 为自主智能体提供精准编织。
               </p>
             </div>
             <nav className="flex flex-wrap items-center gap-x-space-lg gap-y-space-sm">

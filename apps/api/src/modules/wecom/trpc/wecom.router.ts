@@ -6,7 +6,7 @@ import {
   SendKfMessageSchema,
   SyncKfMessageSchema,
   Permission,
-} from '@loom/shared';
+} from '@sanqin/shared';
 import { createCrudRouterWithCustom, createReadOnlyRouter } from '../../../trpc/trpc.helper';
 import { permissionProcedure, protectedProcedure } from '../../../trpc/trpc';
 import { WecomApiService } from '../services/wecom-api.service';

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { useTopInset } from '@/composables/topInset';
+import { ref } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
-import { API_CONFIG } from '@/config/api';
 import { uploadAvatar } from '@/api/upload';
 import { authApi } from '@/api/auth';
 
@@ -12,105 +12,64 @@ definePage({
   },
 });
 
-const statusBarHeight = ref(0);
+const { topInset } = useTopInset();
 const loading = ref(false);
+const editing = ref(false);
+const loggedOut = ref(false);
 const userInfo = ref<{
-  username?: string;
-  email?: string;
   nickname?: string;
   phone?: string;
   avatar?: string;
-}>({
-  username: '',
-  email: '',
-  nickname: '',
-  phone: '',
-  avatar: '',
-});
-const originalUserInfo = ref<any>(null);
-
-onMounted(() => {
-  const sysInfo = uni.getSystemInfoSync();
-  statusBarHeight.value = sysInfo.statusBarHeight || 0;
-
-  // 获取用户信息
-  const storedUserInfo = uni.getStorageSync('userInfo');
-  if (storedUserInfo) {
-    userInfo.value = { ...storedUserInfo };
-    originalUserInfo.value = { ...storedUserInfo };
-  }
-});
+}>({});
 
 // 页面显示时刷新用户信息
 onShow(async () => {
   const token = uni.getStorageSync('token');
-  if (token) {
-    try {
-      const res = await authApi.getProfile();
-      if (res.data) {
-        userInfo.value = { ...res.data };
-        originalUserInfo.value = { ...res.data };
-        uni.setStorageSync('userInfo', res.data);
-      }
-    } catch (error) {
-      console.error('刷新用户信息失败:', error);
+  if (!token) {
+    loggedOut.value = true;
+    return;
+  }
+  loggedOut.value = false;
+  // 先用本地缓存快速渲染
+  const stored = uni.getStorageSync('userInfo');
+  if (stored) userInfo.value = { ...stored };
+  try {
+    const res = await authApi.getProfile();
+    if (res.data) {
+      userInfo.value = { ...res.data };
+      uni.setStorageSync('userInfo', res.data);
     }
+  } catch (error) {
+    console.error('刷新用户信息失败:', error);
   }
 });
 
+function goLogin() {
+  uni.navigateTo({ url: '/pages/login' });
+}
+
+// ── 编辑态：头像 / 称呼 / 手机号 ──
 async function onChooseAvatar(event: any) {
   const avatarUrl = event.detail.avatarUrl;
-  if (avatarUrl) {
-    // 先显示临时头像
-    userInfo.value.avatar = avatarUrl;
+  if (!avatarUrl) return;
+  userInfo.value.avatar = avatarUrl;
 
-    // 上传到服务器获取永久 URL
-    uni.showLoading({ title: '上传头像...', mask: true });
-    try {
-      const permanentUrl = await uploadAvatar(avatarUrl);
-      console.log('✅ 获取到永久 URL:', permanentUrl);
-
-      // 更新本地状态
-      userInfo.value.avatar = permanentUrl;
-
-      // 立即保存到数据库
-      const token = uni.getStorageSync('token');
-      if (token) {
-        await uni.request({
-          url: `${API_CONFIG.baseURL}/auth/me`,
-          method: 'POST',
-          header: {
-            Authorization: `Bearer ${token}`,
-          },
-          data: {
-            avatar: permanentUrl,
-          },
-        });
-
-        // 更新本地存储
-        uni.setStorageSync('userInfo', userInfo.value);
-        console.log('✅ 头像已保存到数据库');
-      }
-
-      uni.hideLoading();
-      uni.showToast({ title: '头像上传成功', icon: 'success' });
-    } catch (error: any) {
-      uni.hideLoading();
-      console.error('❌ 上传头像失败:', error);
-      uni.showToast({ title: error.message || '上传失败', icon: 'none' });
-      // 上传失败时，恢复原始头像
-      if (originalUserInfo.value?.avatar) {
-        userInfo.value.avatar = originalUserInfo.value.avatar;
-      }
-    }
+  uni.showLoading({ title: '上传头像...', mask: true });
+  try {
+    const permanentUrl = await uploadAvatar(avatarUrl);
+    userInfo.value.avatar = permanentUrl;
+    const res = await authApi.updateProfile({ avatar: permanentUrl });
+    uni.setStorageSync('userInfo', { ...uni.getStorageSync('userInfo'), ...res.data });
+    uni.hideLoading();
+    uni.showToast({ title: '头像已更新', icon: 'success' });
+  } catch (error: any) {
+    uni.hideLoading();
+    uni.showToast({ title: error?.message || '头像上传失败', icon: 'none' });
   }
 }
 
 function onNicknameChange(event: any) {
-  const nickname = event.detail.value;
-  if (nickname) {
-    userInfo.value.nickname = nickname;
-  }
+  if (event.detail.value) userInfo.value.nickname = event.detail.value;
 }
 
 async function getPhoneNumber(event: any) {
@@ -118,343 +77,275 @@ async function getPhoneNumber(event: any) {
     uni.showToast({ title: '授权取消', icon: 'none' });
     return;
   }
-
   loading.value = true;
   try {
-    const token = uni.getStorageSync('token');
-    if (!token) {
-      throw new Error('请先登录');
-    }
-
-    // 调用后端接口获取手机号
-    const res = await uni.request({
-      url: `${API_CONFIG.baseURL}/auth/getPhoneNumber`,
-      method: 'POST',
-      header: {
-        Authorization: `Bearer ${token}`,
-      },
-      data: {
-        code: event.detail.code,
-      },
-    });
-
-    if (res.statusCode === 200 && res.data) {
-      const response = res.data as any;
-      console.log('📱 手机号授权响应:', response);
-
-      // 后端返回的是 { success: true, data: { phoneNumber: "xxx" } }
-      const phoneNumber = response.data?.phoneNumber;
-      console.log('📱 phoneNumber 值:', phoneNumber);
-
-      if (phoneNumber) {
-        userInfo.value.phone = phoneNumber;
-
-        // 立即保存到数据库
-        await uni.request({
-          url: `${API_CONFIG.baseURL}/auth/me`,
-          method: 'POST',
-          header: {
-            Authorization: `Bearer ${token}`,
-          },
-          data: {
-            phone: phoneNumber,
-          },
-        });
-
-        // 更新本地存储
-        uni.setStorageSync('userInfo', userInfo.value);
-        console.log('✅ 手机号已保存到数据库:', userInfo.value.phone);
-        uni.showToast({ title: '手机号授权成功', icon: 'success' });
-      } else {
-        console.error('❌ 后端未返回 phoneNumber');
-        throw new Error('授权失败：未获取到手机号');
-      }
+    const res = await authApi.bindPhone(event.detail.code);
+    if (res.data?.phone) {
+      userInfo.value.phone = res.data.phone;
+      uni.setStorageSync('userInfo', { ...uni.getStorageSync('userInfo'), phone: res.data.phone });
+      uni.showToast({ title: '手机号已更新', icon: 'success' });
     } else {
-      throw new Error('授权失败');
+      throw new Error('未获取到手机号');
     }
   } catch (error: any) {
-    uni.showToast({ title: error.message || '授权失败', icon: 'none' });
+    uni.showToast({ title: error?.message || '授权失败', icon: 'none' });
   } finally {
     loading.value = false;
   }
 }
 
 async function handleSave() {
-  if (!userInfo.value.nickname || userInfo.value.nickname.trim() === '') {
-    uni.showToast({ title: '请输入昵称', icon: 'none' });
+  if (!userInfo.value.nickname?.trim()) {
+    uni.showToast({ title: '请输入称呼', icon: 'none' });
     return;
   }
-
   loading.value = true;
   try {
-    const token = uni.getStorageSync('token');
-    if (!token) {
-      throw new Error('请先登录');
-    }
-
-    // 调用后端接口更新用户信息
-    await uni.request({
-      url: `${API_CONFIG.baseURL}/auth/me`,
-      method: 'POST',
-      header: {
-        Authorization: `Bearer ${token}`,
-      },
-      data: {
-        nickname: userInfo.value.nickname,
-        avatar: userInfo.value.avatar,
-        phone: userInfo.value.phone, // 同时保存手机号
-      },
+    const res = await authApi.updateProfile({
+      nickname: userInfo.value.nickname.trim(),
+      avatar: userInfo.value.avatar,
+      phone: userInfo.value.phone,
     });
-
-    // 更新本地存储
-    uni.setStorageSync('userInfo', userInfo.value);
-
+    uni.setStorageSync('userInfo', { ...uni.getStorageSync('userInfo'), ...res.data });
     uni.showToast({ title: '保存成功', icon: 'success' });
-    setTimeout(() => {
-      uni.navigateBack();
-    }, 1500);
+    editing.value = false;
   } catch (error: any) {
-    uni.showToast({ title: error.message || '保存失败', icon: 'none' });
+    uni.showToast({ title: error?.message || '保存失败', icon: 'none' });
   } finally {
     loading.value = false;
   }
 }
+
+// ── 功能入口 ──
+function notOpen() {
+  uni.showToast({ title: '优惠券功能暂未开通，敬请期待', icon: 'none' });
+}
+
+function goOrders() {
+  uni.navigateTo({ url: '/pages/orders/index' });
+}
+
+function contactService() {
+  // open-type=contact 在未开通客服时会无响应，这里兜底提示
+  uni.showToast({ title: '客服功能暂未开通，敬请期待', icon: 'none' });
+}
 </script>
 
 <template>
-  <view class="edit-page">
-    <!-- 内容区域 -->
-    <view class="content">
-      <!-- 头像区域 -->
-      <view class="avatar-section">
-        <button class="avatar-btn" open-type="chooseAvatar" @chooseavatar="onChooseAvatar">
-          <image
-            v-if="userInfo.avatar"
-            :src="userInfo.avatar"
-            class="avatar-image"
-            mode="aspectFill"
-          />
-          <view v-else class="avatar-placeholder">
-            <text class="iconfont icon-yonghu avatar-placeholder-icon" />
-          </view>
-          <view class="avatar-overlay">
-            <text class="iconfont icon-camera avatar-camera-icon" />
-          </view>
-        </button>
-        <text class="avatar-tip"> 点击更换头像 </text>
-      </view>
-
-      <!-- 表单字段 -->
-      <view class="form-section">
-        <!-- 昵称字段 -->
-        <view class="form-item">
-          <text class="form-label"> 昵称 </text>
-          <input
-            type="nickname"
-            :value="userInfo.nickname"
-            class="form-input"
-            placeholder="请输入昵称"
-            placeholder-class="form-input-placeholder"
-            maxlength="20"
-            @blur="onNicknameChange"
-          />
-        </view>
-
-        <!-- 手机号字段 -->
-        <view class="form-item">
-          <text class="form-label"> 手机号 </text>
-          <view class="phone-field">
-            <text v-if="userInfo.phone" class="phone-number">
-              {{ userInfo.phone }}
-            </text>
-            <text v-else class="phone-placeholder"> 未绑定 </text>
-            <button
-              class="phone-btn"
-              open-type="getPhoneNumber"
-              :loading="loading"
-              @getphonenumber="getPhoneNumber"
-            >
-              <text class="phone-btn-text">
-                {{ userInfo.phone ? '更换' : '授权' }}
-              </text>
-            </button>
-          </view>
-        </view>
-      </view>
-
-      <!-- 提示信息 -->
-      <view class="info-card">
-        <view class="info-content">
-          <text class="iconfont icon-shield info-icon" />
-          <view class="info-text">
-            <text class="info-title"> 账号安全说明 </text>
-            <text class="info-desc">
-              为了保障社区安全，真实身份信息已加密处理。修改昵称不会影响您的会员权益发放。
-            </text>
-          </view>
-        </view>
-      </view>
+  <view class="me-page">
+    <!-- 顶部品牌渐变（延伸到状态栏顶） -->
+    <view class="hero" :style="{ paddingTop: topInset + 'px' }">
+      <text class="hero-title">我的</text>
     </view>
 
-    <!-- 底部保存按钮 -->
-    <view class="footer">
-      <view class="save-btn" :class="{ 'save-btn-disabled': loading }" @tap="handleSave">
-        <text class="save-btn-text"> 保存修改 </text>
-        <text class="iconfont icon-check save-btn-icon" />
+    <view class="body">
+      <!-- 个人信息卡片 -->
+      <view class="user-card">
+        <template v-if="!loggedOut">
+          <view class="user-row">
+            <button class="avatar-btn" open-type="chooseAvatar" @chooseavatar="onChooseAvatar">
+              <image
+                v-if="userInfo.avatar"
+                :src="userInfo.avatar"
+                class="avatar-image"
+                mode="aspectFill"
+              />
+              <view v-else class="avatar-placeholder">
+                <text class="iconfont icon-yonghu avatar-placeholder-icon" />
+              </view>
+            </button>
+            <view class="user-meta">
+              <text class="user-name">{{ userInfo.nickname || '未设置称呼' }}</text>
+              <text class="user-phone">{{ userInfo.phone || '未绑定手机号' }}</text>
+            </view>
+            <view class="edit-btn" @tap="editing = !editing">
+              {{ editing ? '取消' : '编辑资料' }}
+            </view>
+          </view>
+
+          <!-- 编辑表单（展开） -->
+          <view v-if="editing" class="edit-form">
+            <view class="form-item">
+              <text class="form-label">称呼</text>
+              <input
+                type="nickname"
+                :value="userInfo.nickname"
+                class="form-input"
+                placeholder="车票展示用"
+                :maxlength="20"
+                @blur="onNicknameChange"
+              />
+            </view>
+            <view class="form-item">
+              <text class="form-label">手机号</text>
+              <view class="phone-field">
+                <text :class="userInfo.phone ? 'phone-value' : 'phone-empty'">
+                  {{ userInfo.phone || '未绑定' }}
+                </text>
+                <button
+                  class="phone-btn"
+                  open-type="getPhoneNumber"
+                  :loading="loading"
+                  @getphonenumber="getPhoneNumber"
+                >
+                  {{ userInfo.phone ? '更换' : '微信授权' }}
+                </button>
+              </view>
+            </view>
+            <view class="save-btn" :class="{ 'save-disabled': loading }" @tap="handleSave">
+              保存修改
+            </view>
+          </view>
+        </template>
+
+        <template v-else>
+          <view class="user-row" @tap="goLogin">
+            <view class="avatar-placeholder">
+              <text class="iconfont icon-yonghu avatar-placeholder-icon" />
+            </view>
+            <view class="user-meta">
+              <text class="user-name">点击登录</text>
+              <text class="user-phone">登录后可购票与管理订单</text>
+            </view>
+          </view>
+        </template>
       </view>
+
+      <!-- 功能入口列表 -->
+      <view class="menu-card">
+        <view class="menu-item" @tap="notOpen">
+          <view class="menu-left">
+            <image class="menu-icon-img" src="/static/menu/coupon.png" />
+            <text class="menu-text">优惠券</text>
+          </view>
+          <text class="menu-badge">未开通</text>
+        </view>
+        <view class="menu-item" @tap="goOrders">
+          <view class="menu-left">
+            <image class="menu-icon-img" src="/static/menu/orders.png" />
+            <text class="menu-text">我的订单</text>
+          </view>
+          <text class="menu-arrow">›</text>
+        </view>
+        <button class="menu-item menu-contact" open-type="contact" @tap="contactService">
+          <view class="menu-left">
+            <image class="menu-icon-img" src="/static/menu/service.png" />
+            <text class="menu-text">联系客服</text>
+          </view>
+          <text class="menu-arrow">›</text>
+        </button>
+      </view>
+
+      <view class="version-tip">桥水出行 · P0 体验版</view>
     </view>
   </view>
 </template>
 
 <style lang="scss" scoped>
-.edit-page {
+.me-page {
   min-height: 100vh;
   background: #f5faff;
-  display: flex;
-  flex-direction: column;
   box-sizing: border-box;
 }
 
-/* 导航栏 */
-.nav-bar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 50;
-  background: rgba(239, 244, 250, 0.95);
-  backdrop-filter: blur(20px);
+/* 顶部品牌渐变 */
+.hero {
+  background: linear-gradient(160deg, #1f4e79 0%, #2f7ab8 70%, #6aa6d8 100%);
+  padding: 24rpx 36rpx 140rpx;
 }
 
-.nav-content {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 88rpx;
-  padding: 0 32rpx;
-}
-
-.nav-back {
-  width: 48rpx;
-  height: 48rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.nav-back-icon {
-  font-size: 32px;
-  color: #00aeef;
-}
-
-.nav-title {
-  font-size: 32rpx;
+.hero-title {
+  font-size: 40rpx;
   font-weight: 700;
-  color: #171c20;
+  color: #ffffff;
+  letter-spacing: 4rpx;
 }
 
-.nav-placeholder {
-  width: 48rpx;
+.body {
+  padding: 0 24rpx 60rpx;
+  margin-top: -120rpx;
 }
 
-/* 内容区域 */
-.content {
-  flex: 1;
-  padding: 20rpx 40rpx 160rpx;
+/* 个人信息卡片 */
+.user-card {
+  background: #ffffff;
+  border-radius: 24rpx;
+  padding: 32rpx;
+  box-shadow: 0 8rpx 32rpx rgba(31, 78, 121, 0.08);
+  margin-bottom: 24rpx;
 }
 
-/* 头像区域 */
-.avatar-section {
+.user-row {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  margin-bottom: 64rpx;
-  padding-top: 40rpx;
+  gap: 24rpx;
 }
 
 .avatar-btn {
-  position: relative;
-  width: 150rpx;
-  height: 150rpx;
-  margin-bottom: 24rpx;
-  padding: 8rpx;
+  padding: 0;
   background: transparent;
   border: none;
+  flex-shrink: 0;
 
   &::after {
     border: none;
   }
 }
 
-.avatar-image {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  background: rgba(221, 244, 255, 0.3);
-  border: 4rpx solid rgba(189, 200, 209, 0.2);
-}
-
+.avatar-image,
 .avatar-placeholder {
-  width: 100%;
-  height: 100%;
+  width: 120rpx;
+  height: 120rpx;
   border-radius: 50%;
-  background: rgba(221, 244, 255, 0.3);
-  border: 4rpx solid rgba(189, 200, 209, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
+  background: rgba(221, 244, 255, 0.4);
+  border: 3rpx solid rgba(189, 200, 209, 0.25);
 }
 
 .avatar-placeholder-icon {
-  font-size: 64px;
+  font-size: 52px;
   color: #bdc8d1;
 }
 
-.avatar-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(23, 28, 32, 0.2);
-  border-radius: 50%;
+.user-meta {
+  flex: 1;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 0.3s ease;
+  flex-direction: column;
+  gap: 8rpx;
 }
 
-.avatar-btn:active .avatar-overlay {
-  opacity: 1;
+.user-name {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #1f2d3d;
 }
 
-.avatar-camera-icon {
-  font-size: 48px;
-  color: #ffffff;
+.user-phone {
+  font-size: 24rpx;
+  color: #7a8b9a;
 }
 
-.avatar-tip {
-  font-size: 22rpx;
-  font-weight: 600;
-  color: #6e7881;
-  letter-spacing: 1rpx;
-  text-transform: uppercase;
+.edit-btn {
+  padding: 10rpx 26rpx;
+  border-radius: 28rpx;
+  border: 2rpx solid #00aeef;
+  color: #00aeef;
+  font-size: 24rpx;
+  flex-shrink: 0;
 }
 
-/* 表单区域 */
-.form-section {
-  background: #ffffff;
-  border-radius: 24rpx;
-  padding: 0 32rpx;
-  margin-bottom: 32rpx;
-  border: 2rpx solid rgba(189, 200, 209, 0.2);
+/* 编辑表单 */
+.edit-form {
+  margin-top: 32rpx;
+  border-top: 2rpx solid rgba(189, 200, 209, 0.25);
+  padding-top: 8rpx;
 }
 
 .form-item {
-  padding: 32rpx 0;
-  border-bottom: 2rpx solid rgba(189, 200, 209, 0.1);
-}
-
-.form-item:last-child {
-  border-bottom: none;
+  padding: 24rpx 0;
+  border-bottom: 2rpx solid rgba(189, 200, 209, 0.15);
 }
 
 .form-label {
@@ -463,20 +354,14 @@ async function handleSave() {
   font-weight: 700;
   color: #6e7881;
   letter-spacing: 1rpx;
-  text-transform: uppercase;
-  margin-bottom: 16rpx;
+  margin-bottom: 12rpx;
 }
 
 .form-input {
   width: 100%;
-  height: 80rpx;
+  height: 72rpx;
   font-size: 30rpx;
   color: #171c20;
-  font-weight: 500;
-}
-
-.form-input-placeholder {
-  color: rgba(110, 120, 129, 0.5);
 }
 
 .phone-field {
@@ -484,124 +369,122 @@ async function handleSave() {
   align-items: center;
   justify-content: space-between;
   gap: 24rpx;
+  height: 72rpx;
 }
 
-.phone-number {
-  flex: 1;
+.phone-value {
   font-size: 30rpx;
   color: #171c20;
-  font-weight: 500;
 }
 
-.phone-placeholder {
-  flex: 1;
+.phone-empty {
   font-size: 30rpx;
   color: rgba(110, 120, 129, 0.5);
 }
 
 .phone-btn {
-  padding: 6rpx 32rpx;
-  background: rgba(221, 244, 255, 0.3);
+  padding: 6rpx 28rpx;
+  background: rgba(221, 244, 255, 0.5);
+  border-radius: 26rpx;
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #00aeef;
 
   &::after {
     border: none;
   }
 }
 
-.phone-btn-text {
-  font-size: 24rpx;
-  line-height: 12rpx;
-  font-weight: 700;
-  color: #00aeef;
-}
-
-/* 提示信息卡片 */
-.info-card {
-  background: rgba(221, 244, 255, 0.2);
-  border-radius: 24rpx;
-  padding: 32rpx;
-  border: 2rpx solid rgba(0, 174, 239, 0.1);
-}
-
-.info-content {
-  display: flex;
-  align-items: flex-start;
-  gap: 20rpx;
-}
-
-.info-icon {
-  font-size: 32px;
-  color: #00aeef;
-  flex-shrink: 0;
-}
-
-.info-text {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 8rpx;
-}
-
-.info-title {
-  font-size: 26rpx;
-  font-weight: 700;
-  color: #003e58;
-}
-
-.info-desc {
-  font-size: 22rpx;
-  color: #3d657e;
-  line-height: 1.6;
-}
-
-/* 底部保存按钮 */
-.footer {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 24rpx 40rpx;
-  padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
-  background: rgba(245, 250, 255, 0.95);
-  backdrop-filter: blur(20px);
-}
-
 .save-btn {
-  width: 100%;
-  height: 96rpx;
+  margin-top: 28rpx;
+  height: 88rpx;
   background: #00aeef;
-  border-radius: 16rpx;
+  border-radius: 44rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12rpx;
-  // box-shadow: 0 16rpx 32rpx -8rpx rgba(0, 174, 239, 0.3);
+  color: #ffffff;
+  font-size: 30rpx;
+  font-weight: 700;
 
   &:active {
     transform: scale(0.98);
   }
 }
 
-.save-btn-disabled {
+.save-disabled {
   opacity: 0.5;
   pointer-events: none;
 }
 
-.save-btn-text {
-  font-size: 28rpx;
-  font-weight: 700;
-  color: #ffffff;
-  letter-spacing: 1rpx;
+/* 功能入口卡片 */
+.menu-card {
+  background: #ffffff;
+  border-radius: 24rpx;
+  padding: 0 32rpx;
+  box-shadow: 0 8rpx 32rpx rgba(31, 78, 121, 0.08);
+  margin-bottom: 32rpx;
 }
 
-.save-btn-icon {
-  font-size: 18px;
-  color: #ffffff;
+.menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 32rpx 0;
+  border-bottom: 2rpx solid rgba(189, 200, 209, 0.15);
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  font-size: inherit;
+
+  &::after {
+    border: none;
+  }
+
+  &:last-child {
+    border-bottom: none;
+  }
 }
 
-button {
-  border: none;
+.menu-contact {
+  border-radius: 0;
   margin: 0;
-  padding: 0;
+  line-height: inherit;
+}
+
+.menu-left {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+}
+
+.menu-icon-img {
+  width: 44rpx;
+  height: 44rpx;
+  flex-shrink: 0;
+}
+
+.menu-text {
+  font-size: 30rpx;
+  color: #1f2d3d;
+}
+
+.menu-badge {
+  font-size: 22rpx;
+  color: #7a8b9a;
+  background: rgba(189, 200, 209, 0.2);
+  border-radius: 18rpx;
+  padding: 6rpx 18rpx;
+}
+
+.menu-arrow {
+  font-size: 32rpx;
+  color: #bdc8d1;
+}
+
+.version-tip {
+  text-align: center;
+  font-size: 22rpx;
+  color: rgba(122, 139, 154, 0.7);
 }
 </style>

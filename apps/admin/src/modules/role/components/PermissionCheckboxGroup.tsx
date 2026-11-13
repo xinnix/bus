@@ -19,7 +19,6 @@ interface Permission {
 
 const RESOURCE_LABELS: Record<string, string> = {
   menu: '菜单权限',
-  todo: '待办事项',
   user: '用户管理',
   role: '角色管理',
   handler: '核销员管理',

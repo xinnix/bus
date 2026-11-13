@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { Permission } from '@loom/shared';
+import { Permission } from '@sanqin/shared';
 import { router, permissionProcedure, getSettingsService } from '../../../trpc/trpc';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { computeLlmUsageOverview } from '../../../ai/llm-trace/llm-usage-agg';

@@ -22,7 +22,7 @@ You are an elite full-stack engineer with deep expertise in the Loom monorepo ar
    - Use `apps/api/src/modules/[resource]/` pattern for feature modules
    - Place tRPC routers in `apps/api/src/trpc/` following the naming convention
    - Maintain CRUD naming: `getMany`, `getOne`, `createOne`, `updateOne`, `deleteOne`, `deleteMany`
-   - Use Zod schemas from `@loom/shared` for validation
+   - Use Zod schemas from `@sanqin/shared` for validation
    - Keep Refine resource names exactly matching tRPC router keys
 
 2. **Code Generation Workflow:**
@@ -33,7 +33,7 @@ You are an elite full-stack engineer with deep expertise in the Loom monorepo ar
 3. **Type Safety Protocol:**
    - Always ensure tRPC procedures return types that match frontend expectations
    - Use shared Zod schemas for validation across both protocols
-   - Verify `AppRouter` type export in `@loom/shared` after router changes
+   - Verify `AppRouter` type export in `@sanqin/shared` after router changes
    - Test tRPC calls from admin frontend: `apps/admin/src/utils/trpc.ts`
 
 4. **Database Changes:**

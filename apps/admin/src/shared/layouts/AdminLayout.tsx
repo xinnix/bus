@@ -17,12 +17,17 @@ import {
   ApiOutlined,
   ToolOutlined,
   BarChartOutlined,
+  ScheduleOutlined,
+  EnvironmentOutlined,
+  OrderedListOutlined,
+  ScanOutlined,
+  CarOutlined,
 } from '@ant-design/icons';
 import { useState, useMemo } from 'react';
 import { useAuth } from '../auth';
 import { ProfileModal } from '../components/ProfileModal';
 import { ChangePasswordModal } from '../components/ChangePasswordModal';
-import { Permission } from '@loom/shared';
+import { Permission } from '@sanqin/shared';
 
 const { Header, Sider, Content } = Layout;
 
@@ -40,21 +45,28 @@ const iconMap: Record<string, React.ReactNode> = {
   ApiOutlined: <ApiOutlined />,
   ToolOutlined: <ToolOutlined />,
   BarChartOutlined: <BarChartOutlined />,
+  ScheduleOutlined: <ScheduleOutlined />,
+  EnvironmentOutlined: <EnvironmentOutlined />,
+  OrderedListOutlined: <OrderedListOutlined />,
+  ScanOutlined: <ScanOutlined />,
+  CarOutlined: <CarOutlined />,
 };
 
 // prettier-ignore
 const menuConfig = [
   {
-    key: "ai",
-    label: "AI 助手",
-    icon: "RobotOutlined",
+    key: "ticketing",
+    label: "票务管理",
+    icon: "ScheduleOutlined",
     permission: null,
     children: [
-      { key: "/ai/llm-configs", label: "模型配置", icon: "ApiOutlined", permission: Permission.menu.llmConfigs },
-      { key: "/ai/agents", label: "Agent 编排", icon: "RobotOutlined", permission: Permission.menu.agents },
-      { key: "/ai/tools", label: "工具", icon: "ToolOutlined", permission: Permission.menu.aiTools },
-      { key: "/ai/agent-triggers", label: "定时触发", icon: "ThunderboltOutlined", permission: Permission.menu.agentTriggers },
-      { key: "/ai/usage", label: "AI 用量", icon: "BarChartOutlined", permission: Permission.menu.llmUsage },
+      { key: "/lines", label: "线路管理", icon: "EnvironmentOutlined", permission: Permission.menu.lines },
+      { key: "/stations", label: "上下车点", icon: "EnvironmentOutlined", permission: Permission.menu.stations },
+      { key: "/schedule-templates", label: "班次模板", icon: "ScheduleOutlined", permission: Permission.menu.scheduleTemplates },
+      { key: "/trips", label: "班次管理", icon: "CarOutlined", permission: Permission.menu.trips },
+      { key: "/orders", label: "订单记录", icon: "OrderedListOutlined", permission: Permission.menu.orders },
+      { key: "/checkins", label: "核销记录", icon: "ScanOutlined", permission: Permission.menu.checkins },
+      { key: "/checkers", label: "核销员", icon: "SafetyCertificateOutlined", permission: Permission.menu.checkers },
     ],
   },
   {
@@ -69,26 +81,7 @@ const menuConfig = [
       { key: "/changelog", label: "更新日志", icon: "ThunderboltOutlined", permission: Permission.menu.changelog },
     ],
   },
-  {
-    key: "wecom",
-    label: "企业微信",
-    icon: "WechatOutlined",
-    permission: null,
-    children: [
-      { key: "/wecom", label: "应用配置", icon: "SettingOutlined", permission: Permission.menu.wecom },
-      { key: "/wecom/messages", label: "消息记录", icon: "MessageOutlined", permission: Permission.menu.wecom },
-      { key: "/wecom/events", label: "事件记录", icon: "ThunderboltOutlined", permission: Permission.menu.wecom },
-    ],
-  },
-  {
-    key: "todo",
-    label: "Todo 示例",
-    icon: "CheckSquareOutlined",
-    permission: null,
-    children: [
-      { key: "/todos", label: "Todo 管理", icon: "CheckSquareOutlined", permission: null },
-    ],
-  },
+
 ];
 
 export function AdminLayout() {
@@ -205,7 +198,7 @@ export function AdminLayout() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <img src="../logo.png" alt="" width={36} height={36} />
               <div style={{ color: '#fff', fontWeight: 600, fontSize: 16, whiteSpace: 'nowrap' }}>
-                Roundtable
+                桥水出行
               </div>
             </div>
           )}
