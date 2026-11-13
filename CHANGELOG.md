@@ -11,6 +11,10 @@
 - 班次停售规则：发车时间已过 30 分钟停止售票。规则收敛在 `@sanqin/shared`（`TRIP_SALE_GRACE_MINUTES` / `isTripPurchasable`）：`POST /api/orders` 下单硬校验拒绝超时班次；班次列表接口每班次下发 `purchasable`，小程序「选择班次」页展示「已停售」标签并禁止选择（点击提示）。PRD F3 同步；集成测试新增停售拒绝用例（11/11）
 - 购票页乘车日期选择下限为当天（`picker :start`），不能选过去日期；日期默认值改本地时区格式化（原 `toISOString` 在东八区深夜会退回前一天）
 
+### 变更
+
+- 小程序生产构建 API 域名落地：`apps/miniapp/.env.production` 的 `VITE_API_BASE_URL` 由占位符 `api.example.com` 改为正式域名 `https://chuxing-api.classmaster.cn`（frp 公网隧道，HTTPS 证书已验证）。小程序正式版发布前需在微信公众平台「request 合法域名」配置该主机（域名需 ICP 备案）
+
 ## [1.3.2] - 2026-11-13
 
 ### 修复
