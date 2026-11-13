@@ -1,23 +1,42 @@
-# Docker Compose for Production
-# Usage: docker-compose -f docker-compose.prod.yml --env-file .env.prod up -d
+# Docker Compose for Production（bus / 桥水出行）
+# Usage: docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
 #
 # 生产环境部署配置
-# - 连接外部 PostgreSQL 数据库
-# - 包含健康检查和自动重启
-# - 日志和资源限制配置
-
-version: '3.8'
+# - 镜像由 CI 构建并推送至 ghcr.io/xinnix/bus-{api,admin,web}（见 .github/workflows/ci.yml）
+#   服务器从国内加速镜像 ghcr.1ms.run 拉取（与 wesale 同款写法）
+# - 数据库/Redis 复用服务器上 1Panel 的同一套 PostgreSQL/Redis：
+#   api 加入 external 网络 1panel-network 跨网络解析容器名；
+#   api 容器启动时 entrypoint 自动 migrate deploy（可用 SKIP_MIGRATION=true 跳过），
+#   DATABASE_URL 务必指向独立 database（勿与 wesale 的库混用）
+# - .env.prod 双重用途：compose 插值变量 + 容器运行时环境变量（模板见 .env.prod.example）
+# - 宿主机需预先准备 .env.prod 与 certs/（微信支付证书）
+#
+# ── 端口约定：一个数字在全系统只属于一个服务 ──────────────
+#   与 wesale 同机部署，wesale 已占 3000(api)/3001(landing)/8081(admin)，本项目整体错开：
+#   api     容器内 3000（NestJS 原生）    宿主机 ${API_PORT:-3010}
+#   web     容器内 3002（Next standalone）宿主机 ${WEB_PORT:-3011}
+#   admin   容器内 80（nginx 原生）       宿主机 ${ADMIN_PORT:-8082}
+#   本地开发同构：api 3000 / web 3002（next dev）/ admin 5173（Vite dev）
+#
+# ── 边缘反代路由契约（1Panel OpenResty 按域名分发到宿主机端口）──
+#   管理端域名：/          → 127.0.0.1:${ADMIN_PORT:-8082}
+#              /trpc/*     → 127.0.0.1:${API_PORT:-3010}（admin 构建期 VITE_API_URL=/trpc 相对路径）
+#   用户端域名：/          → 127.0.0.1:${WEB_PORT:-3011}（Next SSR）
+#              /api/*      → 127.0.0.1:${API_PORT:-3010}（浏览器同源 REST 链路，httpOnly cookie）
+#   API 域名（chuxing-api.classmaster.cn）→ 127.0.0.1:${API_PORT:-3010}（小程序直连）
 
 services:
   api:
-    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-sanqin-bus}-api:${TAG:-latest}
-    container_name: ${PROJECT_NAME:-sanqin-bus}-api-prod
+    image: ghcr.1ms.run/xinnix/bus-api:${TAG:-latest}
+    container_name: ${PROJECT_NAME:-bus}-api-prod
     env_file:
       - .env.prod
     environment:
+      # 显式声明，优先于 env_file 中的同名变量（NestJS main.ts 读取 PORT）
+      - PORT=3000
       - TZ=Asia/Shanghai
     ports:
-      - '${API_PORT:-3001}:3000'
+      - '${API_PORT:-3010}:3000'
     volumes:
       # 微信支付证书文件
       # 宿主机证书目录映射到容器内 /app/certs
@@ -25,9 +44,14 @@ services:
       # WX_PAY_PRIVATE_KEY_PATH=/app/certs/apiclient_key.pem
       # WX_PAY_PUBLIC_KEY_PATH=/app/certs/wechatpay_public_key.pem
       - ./certs:/app/certs:ro
+      # 本地文件存储策略（FILE_STORAGE_PROVIDER=local 时 UPLOAD_PATH=/app/uploads）
+      - ./uploads:/app/uploads
     restart: unless-stopped
     networks:
       - app-network
+      # 1Panel 的 Redis/PostgreSQL 容器所在网络（external，跨网络才能解析容器名）
+      # 以服务器 `docker network ls` 实际名称为准，默认为 1panel-network
+      - 1panel-network
     logging:
       driver: 'json-file'
       options:
@@ -35,15 +59,14 @@ services:
         max-file: '3'
 
   admin:
-    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-sanqin-bus}-admin:${TAG:-latest}
-    container_name: ${PROJECT_NAME:-sanqin-bus}-admin-prod
-    profiles: [admin]
+    image: ghcr.1ms.run/xinnix/bus-admin:${TAG:-latest}
+    container_name: ${PROJECT_NAME:-bus}-admin-prod
     env_file:
       - .env.prod
     environment:
       - TZ=Asia/Shanghai
     ports:
-      - '${ADMIN_PORT:-8081}:80'
+      - '${ADMIN_PORT:-8082}:80'
     depends_on:
       - api
     networks:
@@ -55,20 +78,24 @@ services:
         max-file: '3'
 
   web:
-    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-sanqin-bus}-web:${TAG:-latest}
-    container_name: ${PROJECT_NAME:-sanqin-bus}-web-prod
-    profiles: [web]
+    image: ghcr.1ms.run/xinnix/bus-web:${TAG:-latest}
+    container_name: ${PROJECT_NAME:-bus}-web-prod
     env_file:
       - .env.prod
     environment:
+      # env_file 中全局 PORT=3000 是给 API 用的；standalone server.js 读 PORT，
+      # 显式覆盖为 3002（与镜像 EXPOSE 一致）
+      - PORT=3002
       - TZ=Asia/Shanghai
+      # Next 服务端 auth 代理路由（/api/auth/* server-side fetch）的上游；
+      # 浏览器端恒走同源 /api/*（由边缘反代转发到 api），与此变量解耦
+      - API_UPSTREAM_URL=http://api:3000
     ports:
-      - '${WEB_PORT:-3002}:3002'
+      - '${WEB_PORT:-3011}:3002'
     depends_on:
       - api
     networks:
       - app-network
-    restart: unless-stopped
     logging:
       driver: 'json-file'
       options:
@@ -78,3 +105,5 @@ services:
 networks:
   app-network:
     driver: bridge
+  1panel-network:
+    external: true
