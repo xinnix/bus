@@ -20,6 +20,7 @@ import {
   CheckinListPage,
   CheckerListPage,
 } from './modules/ticketing';
+import { DashboardPage } from './modules/dashboard';
 import { RoleListPage, RoleDetailPage } from './modules/role';
 import {
   LlmConfigListPage,
@@ -103,7 +104,8 @@ function AppContent() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/unauthorized" element={<SessionExpiredPage />} />
           <Route path="/" element={<AdminLayout />}>
-            <Route index element={<Navigate to="/lines" replace />} />
+            <Route index element={<Navigate to="/dashboard" replace />} />
+            <Route path="dashboard" element={<DashboardPage />} />
             <Route path="lines" element={<LineListPage />} />
             <Route path="stations" element={<StationListPage />} />
             <Route path="schedule-templates" element={<ScheduleTemplateListPage />} />

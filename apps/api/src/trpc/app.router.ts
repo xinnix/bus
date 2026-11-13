@@ -14,6 +14,7 @@ import { scheduleTemplateRouter, tripRouter } from '../modules/schedule/schedule
 import { orderRouter } from '../modules/order/order.router';
 import { checkinRouter } from '../modules/checkin/checkin.router';
 import { checkerRouter } from '../modules/checkin/checker.router';
+import { dashboardRouter } from '../modules/dashboard/dashboard.router';
 import { wecomRouter } from '../modules/wecom/trpc/wecom.router';
 import { settingsRouter } from '../modules/settings/trpc/settings.router';
 import { changelogRouter } from '../modules/changelog/trpc/changelog.router';
@@ -33,6 +34,7 @@ export const appRouter = router({
   order: orderRouter,
   checkin: checkinRouter,
   checker: checkerRouter,
+  dashboard: dashboardRouter,
   wecom: wecomRouter,
   settings: settingsRouter,
   changelog: changelogRouter,
