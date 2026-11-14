@@ -30,8 +30,6 @@ export interface Ticket {
   passengerName: string;
   checkCode: string;
   status: string;
-  /** 改签产生的新票打标：改签后不可再退/再改 */
-  changedAt?: string | null;
   priceCents?: number;
   qrToken?: string;
 }
@@ -62,6 +60,21 @@ export interface CheckerIdentity {
   id: string;
   name: string;
   phone: string;
+}
+
+/** 核销员端班次运营看板行：已售/余票/已核销 + 可购状态 */
+export interface CheckerTrip {
+  id: string;
+  lineName: string;
+  serviceDate: string;
+  departureTime: string;
+  priceCents: number;
+  totalSeats: number;
+  soldSeats: number;
+  remainingSeats: number;
+  status: string;
+  checkedInCount: number;
+  purchasable: boolean;
 }
 
 export const tripApi = {
@@ -127,15 +140,6 @@ export const orderApi = {
 // P0.5 退票 / 改签 / 订阅消息
 // ====================
 
-export interface RefundQuote {
-  tier: 'FREE' | 'FEE' | 'BLOCKED';
-  ticketCount: number;
-  totalCents: number;
-  feeCents: number;
-  refundCents: number;
-  rule: string;
-}
-
 export interface RefundRecord {
   id: string;
   refundNo: string;
@@ -149,13 +153,6 @@ export interface RefundRecord {
 }
 
 export const refundApi = {
-  quote: (orderId: string, ticketIds: string[]) =>
-    http.post<RefundQuote>(
-      `/orders/${orderId}/refund-quote`,
-      { ticketIds },
-      { showLoading: false },
-    ),
-
   request: (orderId: string, ticketIds: string[], reason?: string) =>
     http.post<RefundRecord>(
       `/orders/${orderId}/refunds`,
@@ -165,22 +162,6 @@ export const refundApi = {
 
   list: (orderId: string) =>
     http.get<RefundRecord[]>(`/orders/${orderId}/refunds`, undefined, { showLoading: false }),
-};
-
-export interface ChangeResult {
-  changeNo: string;
-  priceDiffCents: number;
-  tickets: Ticket[];
-  refund?: RefundRecord | null;
-}
-
-export const changeApi = {
-  submit: (orderId: string, newTripId: string) =>
-    http.post<ChangeResult>(
-      `/orders/${orderId}/change`,
-      { newTripId },
-      { showLoading: true, loadingText: '改签处理中...' },
-    ),
 };
 
 export interface SubscribeTemplates {
@@ -230,6 +211,41 @@ export const checkerApi = {
       showLoading: false,
       header: checkerAuthHeader(),
     }),
+
+  // 班次运营看板：按日期查班次已售/余票/已核销（date 缺省为今天）
+  trips: (date?: string) =>
+    http.get<CheckerTrip[]>(
+      '/checker/trips',
+      { date },
+      {
+        showLoading: false,
+        header: checkerAuthHeader(),
+      },
+    ),
+
+  // 调整班次总票数（余票 = 总票数 - 已售 自动变化，不得低于已售）
+  adjustSeats: (tripId: string, totalSeats: number) =>
+    http.put<{ changed: boolean }>(
+      `/checker/trips/${tripId}/seats`,
+      { totalSeats },
+      {
+        showLoading: true,
+        loadingText: '调整中...',
+        header: checkerAuthHeader(),
+      },
+    ),
+
+  // 上下线班次（在售 ⇄ 停售）
+  setTripStatus: (tripId: string, status: 'ON_SALE' | 'STOPPED') =>
+    http.put<{ changed: boolean }>(
+      `/checker/trips/${tripId}/status`,
+      { status },
+      {
+        showLoading: true,
+        loadingText: status === 'ON_SALE' ? '恢复中...' : '停售中...',
+        header: checkerAuthHeader(),
+      },
+    ),
 };
 
 /** 核销员 JWT 与乘客 JWT 分开存储，请求时覆盖 Authorization 头 */

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
-import { orderApi, refundApi, type Order, type RefundQuote, type Ticket } from '@/api/ticketing';
+import { orderApi, refundApi, type Order, type Ticket } from '@/api/ticketing';
 import { requestWechatPay } from '@/composables/pay';
 import { makeQrMatrix, type QrMatrix } from '@/utils/qr';
 
@@ -40,16 +40,20 @@ const tickets = ref<TicketView[]>([]);
 const loading = ref(true);
 const paying = ref(false);
 
-// P0.5 退票弹层状态
+// P0.5 退票弹层状态（全额退：到账金额 = 所选票票价合计，本地直接计算）
 const showRefund = ref(false);
 const selectedTicketIds = ref<string[]>([]);
-const quote = ref<RefundQuote | null>(null);
 const refunding = ref(false);
 
 const fmt = (cents?: number | null) => `¥${((cents ?? 0) / 100).toFixed(2)}`;
 
 const refundableTickets = computed(() =>
-  (order.value?.tickets || []).filter((t) => t.status === 'UNUSED' && !t.changedAt),
+  (order.value?.tickets || []).filter((t) => t.status === 'UNUSED'),
+);
+const selectedTotalCents = computed(() =>
+  refundableTickets.value
+    .filter((t) => selectedTicketIds.value.includes(t.id))
+    .reduce((sum, t) => sum + (t.priceCents ?? 0), 0),
 );
 const canRefund = computed(
   () =>
@@ -57,14 +61,6 @@ const canRefund = computed(
     order.value?.payment?.status === 'PAID' &&
     refundableTickets.value.length > 0,
 );
-/** 整单改签：全部车票未使用且订单已支付（每单限一次，后端校验改签记录） */
-const canChange = computed(
-  () =>
-    order.value?.orderStatus === 'PAID' &&
-    (order.value?.tickets || []).length > 0 &&
-    (order.value?.tickets || []).every((t) => t.status === 'UNUSED'),
-);
-
 async function loadOrder(id: string) {
   const res = await orderApi.detail(id);
   order.value = res.data;
@@ -119,35 +115,21 @@ async function payOrder() {
 
 function openRefund() {
   selectedTicketIds.value = [];
-  quote.value = null;
   showRefund.value = true;
-}
-
-async function onSelectionChange() {
-  quote.value = null;
-  if (!order.value || selectedTicketIds.value.length === 0) return;
-  try {
-    const res = await refundApi.quote(order.value.id, selectedTicketIds.value);
-    quote.value = res.data;
-  } catch (e: any) {
-    uni.showToast({ title: e?.message || '获取退款金额失败', icon: 'none' });
-    selectedTicketIds.value = [];
-  }
 }
 
 function toggleTicket(id: string) {
   const idx = selectedTicketIds.value.indexOf(id);
   if (idx >= 0) selectedTicketIds.value.splice(idx, 1);
   else selectedTicketIds.value.push(id);
-  onSelectionChange();
 }
 
 async function submitRefund() {
-  if (!order.value || selectedTicketIds.value.length === 0 || !quote.value) return;
+  if (!order.value || selectedTicketIds.value.length === 0) return;
   refunding.value = true;
   try {
     await refundApi.request(order.value.id, selectedTicketIds.value);
-    uni.showToast({ title: '退款已提交', icon: 'success' });
+    uni.showToast({ title: '退款已提交，将原路退回', icon: 'success' });
     showRefund.value = false;
     await loadOrder(order.value.id);
   } catch (e: any) {
@@ -155,11 +137,6 @@ async function submitRefund() {
   } finally {
     refunding.value = false;
   }
-}
-
-function goChange() {
-  if (!order.value) return;
-  uni.navigateTo({ url: `/pages/orders/change?orderId=${order.value.id}` });
 }
 </script>
 
@@ -182,23 +159,18 @@ function goChange() {
         <text>{{ ORDER_STATUS[order.orderStatus] }}</text>
       </view>
 
-      <!-- P0.5 退票 / 改签入口 -->
-      <view v-if="canRefund || canChange" class="banner actions">
+      <!-- P0.5 退票入口 -->
+      <view v-if="canRefund" class="banner actions">
         <view class="action-row">
-          <button v-if="canRefund" class="action-btn refund" @tap="openRefund">申请退票</button>
-          <button v-if="canChange" class="action-btn change" @tap="goChange">改签</button>
+          <button class="action-btn refund" @tap="openRefund">申请退票</button>
         </view>
-        <text class="rule-tip"
-          >退票：发车前24h以上免手续费 / 2–24h收5% / 2h内停退 ·
-          改签：每单限一次，仅可改同价或低价班次</text
-        >
+        <text class="rule-tip">发车前 2 小时内不可退票，退款将原路退回</text>
       </view>
 
       <view v-for="ticket in tickets" :key="ticket.id" class="ticket-card">
         <view class="ticket-head">
           <text class="passenger">{{ ticket.passengerName }}</text>
           <view class="ticket-tags">
-            <text v-if="ticket.changedAt" class="tag changed">改签</text>
             <text v-if="ticket.status !== 'UNUSED'" class="tag" :class="'st-' + ticket.status">{{
               TICKET_STATUS[ticket.status] || ticket.status
             }}</text>
@@ -244,14 +216,16 @@ function goChange() {
             <text class="refund-name">{{ t.passengerName }}（{{ t.ticketNo }}）</text>
             <text class="refund-price">{{ fmt(t.priceCents) }}</text>
           </view>
-          <view v-if="quote" class="quote-box">
-            <text class="quote-rule">{{ quote.rule }}</text>
-            <text class="quote-amount"
-              >手续费 {{ fmt(quote.feeCents) }} · 原路退回 {{ fmt(quote.refundCents) }}</text
-            >
+          <view v-if="selectedTicketIds.length > 0" class="quote-box">
+            <text class="quote-rule">全额退款（原路退回）</text>
+            <text class="quote-amount">到账 {{ fmt(selectedTotalCents) }}</text>
           </view>
-          <text v-else class="quote-hint">点选车票后自动计算手续费与到账金额</text>
-          <button class="modal-btn" :disabled="!quote || refunding" @tap="submitRefund">
+          <text v-else class="quote-hint">点选要退的车票</text>
+          <button
+            class="modal-btn"
+            :disabled="selectedTicketIds.length === 0 || refunding"
+            @tap="submitRefund"
+          >
             确认退票
           </button>
           <button class="modal-cancel" @tap="showRefund = false">取消</button>
@@ -313,10 +287,6 @@ function goChange() {
   font-size: 20rpx;
   padding: 4rpx 12rpx;
   border-radius: 8rpx;
-}
-.tag.changed {
-  background: #f3e8ff;
-  color: #7c3aed;
 }
 .tag.st-REFUNDING {
   background: #fef3c7;
@@ -421,10 +391,6 @@ function goChange() {
 .action-btn.refund {
   background: #fff4f0;
   color: #e85d3f;
-}
-.action-btn.change {
-  background: #e8f4fd;
-  color: #1f7ac2;
 }
 .rule-tip {
   display: block;

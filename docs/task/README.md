@@ -8,6 +8,7 @@
 
 | 任务                                                                                              | 分支   | 完成时间   |
 | ------------------------------------------------------------------------------------------------- | ------ | ---------- |
+| [核销端班次处置（E18）](completed/checker-trip-ops.md)                                            | `main` | 2026-11-14 |
 | [变更日志机制（E16）](completed/changelog-system.md)                                              | `main` | 2026-10-14 |
 | [weSale 回哺批次 D：Agent 定时触发](completed/wesale-backport-d-agent-trigger.md)                 | `main` | 2026-10-14 |
 | [weSale 回哺批次 C：平台参数中心](completed/wesale-backport-c-settings.md)                        | `main` | 2026-10-14 |

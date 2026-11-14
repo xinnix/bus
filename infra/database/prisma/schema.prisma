@@ -594,8 +594,7 @@ model Trip {
   line     Line               @relation(fields: [lineId], references: [id], onDelete: Restrict)
   orders   Order[]
   checkIns CheckIn[]
-  changesAsOld OrderChange[] @relation("OldTripChanges")
-  changesAsNew OrderChange[] @relation("NewTripChanges")
+  operations   TripOperation[]
 
   @@unique([lineId, serviceDate, departureTime])
   @@index([lineId, serviceDate, status])
@@ -629,7 +628,6 @@ model Order {
   tickets  Ticket[]
   payment  Payment?
   refunds  Refund[]
-  changes  OrderChange[]
 
   @@index([userId, createdAt])
   @@index([tripId])
@@ -649,7 +647,6 @@ model Ticket {
   checkCode     String    @unique
   checkedAt     DateTime?
   checkedBy     String?
-  changedAt     DateTime? // 改签产生的新票打标：改签后不可再退/再改
   departureNotifiedAt DateTime? // 发车提醒订阅消息已发时间（去重）
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -706,30 +703,6 @@ model Refund {
   @@map("refunds")
 }
 
-model OrderChange {
-  id             String   @id @default(cuid())
-  changeNo       String   @unique
-  orderId        String
-  oldTripId      String
-  newTripId      String
-  oldTicketIds   Json // 改签前票 ID 数组（CANCELLED）
-  newTicketIds   Json // 改签后新票 ID 数组（changedAt 打标）
-  priceDiffCents Int      @default(0) // 退回差价（分，新价 ≤ 旧价）；P0.5 不支持补差
-  feeCents       Int      @default(0)
-  status         String   @default("SUCCESS") // SUCCESS | FAILED
-  operatorType   String   @default("USER") // USER | ADMIN
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  order   Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
-  oldTrip Trip  @relation("OldTripChanges", map: "order_changes_old_trip_id_fkey", fields: [oldTripId], references: [id], onDelete: Restrict)
-  newTrip Trip  @relation("NewTripChanges", map: "order_changes_new_trip_id_fkey", fields: [newTripId], references: [id], onDelete: Restrict)
-
-  @@index([orderId])
-  @@index([newTripId])
-  @@map("order_changes")
-}
-
 model Checker {
   id           String   @id @default(cuid())
   phone        String   @unique
@@ -740,7 +713,8 @@ model Checker {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  checkIns CheckIn[]
+  checkIns       CheckIn[]
+  tripOperations TripOperation[]
 
   @@map("checkers")
 }
@@ -760,4 +734,21 @@ model CheckIn {
   @@index([tripId, checkedAt])
   @@index([checkerId])
   @@map("check_ins")
+}
+
+/// 班次操作日志：核销员端调整余票/上下线的审计留痕（重建方案 §9.4 停班类危险操作必留痕）
+model TripOperation {
+  id        String   @id @default(cuid())
+  tripId    String
+  checkerId String?
+  action    String // ADJUST_SEATS | SET_STATUS
+  before    Json? // 操作前快照（totalSeats/soldSeats/status）
+  after     Json? // 操作后快照
+  createdAt DateTime @default(now())
+
+  trip    Trip     @relation(fields: [tripId], references: [id], onDelete: Restrict)
+  checker Checker? @relation(fields: [checkerId], references: [id], onDelete: SetNull)
+
+  @@index([tripId, createdAt])
+  @@map("trip_operations")
 }

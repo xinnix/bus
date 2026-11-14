@@ -120,7 +120,6 @@ function goBuy() {
           <view v-for="ticket in order.tickets" :key="ticket.id" class="ticket-row">
             <text class="passenger">{{ ticket.passengerName }}</text>
             <view class="row-right">
-              <text v-if="ticket.changedAt" class="ticket-status changed">改签</text>
               <text class="ticket-status" :class="[`st-${ticket.status}`]">
                 {{ ticketLabel(ticket) }}
               </text>
@@ -239,10 +238,6 @@ function goBuy() {
 .st-REFUNDED {
   color: #b91c1c;
   background: rgba(185, 28, 28, 0.12);
-}
-.ticket-status.changed {
-  color: #7c3aed;
-  background: rgba(124, 58, 237, 0.1);
 }
 .remind-bar {
   display: flex;

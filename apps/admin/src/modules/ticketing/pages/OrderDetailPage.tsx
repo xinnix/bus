@@ -4,14 +4,12 @@ import { useOne } from '@refinedev/core';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Button,
-  DatePicker,
   Descriptions,
   Empty,
   Form,
   Input,
   message,
   Modal,
-  Select,
   Spin,
   Table,
   Tag,
@@ -74,9 +72,7 @@ function RefundModal({ order, open, onClose }: { order: any; open: boolean; onCl
   const [submitting, setSubmitting] = useState(false);
   const queryClient = useQueryClient();
 
-  const refundable = (order?.tickets || []).filter(
-    (t: any) => t.status === 'UNUSED' && !t.changedAt,
-  );
+  const refundable = (order?.tickets || []).filter((t: any) => t.status === 'UNUSED');
   const refundCents = refundable.reduce((sum: number, t: any) => sum + t.priceCents, 0);
   const closedPaid = order?.orderStatus === 'CLOSED' && order?.payment?.status === 'PAID';
   const amount =
@@ -138,116 +134,6 @@ function RefundModal({ order, open, onClose }: { order: any; open: boolean; onCl
         <Form.Item name="reason" label="退款原因（写入退款单）">
           <Input.TextArea rows={2} maxLength={200} placeholder="如：乘客误购申请取消 / 班次取消" />
         </Form.Item>
-      </Form>
-    </Modal>
-  );
-}
-
-// ────────────────────────────── 整单改签 ──────────────────────────────
-
-function ChangeModal({ order, open, onClose }: { order: any; open: boolean; onClose: () => void }) {
-  const [form] = Form.useForm();
-  const [serviceDate, setServiceDate] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const queryClient = useQueryClient();
-
-  const unusedTickets = (order?.tickets || []).filter((t: any) => t.status === 'UNUSED');
-
-  const tripsQuery = useQuery({
-    queryKey: ['trip', 'change-options', order?.id, serviceDate],
-    enabled: open && !!order && !!serviceDate,
-    queryFn: () =>
-      (getTrpcClient() as any).trip.list.query({
-        page: 1,
-        limit: 50,
-        filter: [
-          { field: 'lineId', operator: 'eq', value: order.lineId },
-          { field: 'serviceDate', operator: 'eq', value: serviceDate },
-          { field: 'status', operator: 'eq', value: 'ON_SALE' },
-        ],
-      }),
-  });
-  const tripRows: any[] = tripsQuery.data?.data?.items || tripsQuery.data?.items || [];
-
-  const selectedTripId = Form.useWatch('newTripId', form);
-  const selectedTrip = tripRows.find((t: any) => t.id === selectedTripId);
-  const priceDiff =
-    selectedTrip && order?.trip
-      ? (order.trip.priceCents - selectedTrip.priceCents) * unusedTickets.length
-      : null;
-
-  const submit = async () => {
-    const values = await form.validateFields();
-    setSubmitting(true);
-    try {
-      await (getTrpcClient() as any).order.change.mutate({
-        orderId: order.id,
-        newTripId: values.newTripId,
-      });
-      message.success('改签成功，新票已生成；如产生差价将原路退回');
-      await queryClient.invalidateQueries({ queryKey: ['order'] });
-      onClose();
-    } catch (error: any) {
-      message.error(error?.message || '改签失败');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <Modal
-      title="整单改签"
-      open={open}
-      onCancel={onClose}
-      onOk={submit}
-      confirmLoading={submitting}
-      okText="确认改签"
-    >
-      <Typography.Paragraph type="secondary">
-        每单仅可改签一次；仅支持改到同线路同价或更低票价班次，差价自动原路退回；改签后车票不可再退。
-      </Typography.Paragraph>
-      <Form form={form} layout="vertical">
-        <Form.Item label="目标乘车日期" required>
-          <DatePicker
-            style={{ width: '100%' }}
-            disabledDate={(d) => d.isBefore(dayjs().startOf('day'))}
-            onChange={(d) => {
-              setServiceDate(d ? d.format('YYYY-MM-DD') : null);
-              form.setFieldValue('newTripId', undefined);
-            }}
-          />
-        </Form.Item>
-        <Form.Item
-          name="newTripId"
-          label="目标班次"
-          rules={[{ required: true, message: '请选择目标班次' }]}
-        >
-          <Select
-            placeholder={serviceDate ? '选择班次' : '先选择乘车日期'}
-            loading={tripsQuery.isLoading}
-            options={tripRows
-              .filter((t: any) => t.id !== order?.tripId && t.priceCents <= order?.trip?.priceCents)
-              .map((t: any) => ({
-                value: t.id,
-                label: `${t.departureTime} 发车 · 余票 ${Math.max(0, t.totalSeats - t.soldSeats)} · ${formatCents(t.priceCents)}`,
-              }))}
-            notFoundContent={
-              tripsQuery.isLoading ? <Spin size="small" /> : '无可改班次（更高票价班次不支持）'
-            }
-          />
-        </Form.Item>
-        {priceDiff !== null && selectedTrip && (
-          <Typography.Paragraph>
-            {priceDiff > 0 ? (
-              <>
-                改签后差价 <b>{formatCents(priceDiff)}</b> 将原路退回
-              </>
-            ) : (
-              '同价改签，无差价'
-            )}
-            · 涉及车票 {unusedTickets.length} 张
-          </Typography.Paragraph>
-        )}
       </Form>
     </Modal>
   );
@@ -362,56 +248,6 @@ function RefundsTab({ orderId }: { orderId: string }) {
   );
 }
 
-function ChangesTab({ orderId }: { orderId: string }) {
-  const { data, isLoading } = useQuery({
-    queryKey: ['order', 'changes', orderId],
-    queryFn: () => (getTrpcClient() as any).order.changes.query({ orderId }),
-  });
-  const changes: any[] = data?.data || data || [];
-
-  if (isLoading) return <Spin />;
-  if (!changes.length) return <Empty description="暂无改签记录" />;
-
-  return (
-    <Table
-      rowKey="id"
-      dataSource={changes}
-      pagination={false}
-      size="small"
-      style={{ marginTop: 8 }}
-      columns={[
-        { title: '改签单号', dataIndex: 'changeNo', width: 190 },
-        {
-          title: '原班次',
-          dataIndex: 'oldTrip',
-          width: 180,
-          render: (t: any) => (t ? `${t.serviceDate} ${t.departureTime}` : '-'),
-        },
-        {
-          title: '新班次',
-          dataIndex: 'newTrip',
-          width: 180,
-          render: (t: any) => (t ? `${t.serviceDate} ${t.departureTime}` : '-'),
-        },
-        {
-          title: '车票数',
-          dataIndex: 'oldTicketIds',
-          width: 80,
-          render: (v: any) => (Array.isArray(v) ? v.length : 0),
-        },
-        { title: '退回差价', dataIndex: 'priceDiffCents', width: 100, render: formatCents },
-        {
-          title: '来源',
-          dataIndex: 'operatorType',
-          width: 80,
-          render: (v: string) => (v === 'USER' ? '乘客' : '客服'),
-        },
-        { title: '改签时间', dataIndex: 'createdAt', width: 160, render: formatDateTime },
-      ]}
-    />
-  );
-}
-
 // ────────────────────────────── 主页面 ──────────────────────────────
 
 const orderDetailFields: DetailFieldConfig[] = [
@@ -451,12 +287,11 @@ const orderDetailFields: DetailFieldConfig[] = [
 ];
 
 /**
- * 订单详情页（P0 基础信息 + 车票 + 支付流水；P0.5 整单退款/改签 + 退款/改签记录）。
+ * 订单详情页（P0 基础信息 + 车票 + 支付流水；P0.5 整单退款 + 退款记录）。
  */
 export function OrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [refundOpen, setRefundOpen] = useState(false);
-  const [changeOpen, setChangeOpen] = useState(false);
 
   const { result: order, query } = useOne<any>({
     resource: 'order',
@@ -500,12 +335,6 @@ export function OrderDetailPage() {
             permission: { resource: 'order', action: 'refund' },
             handler: () => setRefundOpen(true),
           },
-          {
-            key: 'change',
-            label: '整单改签',
-            permission: { resource: 'order', action: 'change' },
-            handler: () => setChangeOpen(true),
-          },
         ]}
         tabs={[
           { key: 'info', label: '基本信息' },
@@ -531,11 +360,8 @@ export function OrderDetailPage() {
                     title: '票状态',
                     dataIndex: 'status',
                     width: 110,
-                    render: (v: string, record: any) => (
-                      <>
-                        <Tag color={TICKET_STATUS_COLOR[v]}>{TICKET_STATUS_LABELS[v] || v}</Tag>
-                        {record.changedAt && <Tag color="purple">改签票</Tag>}
-                      </>
+                    render: (v: string) => (
+                      <Tag color={TICKET_STATUS_COLOR[v]}>{TICKET_STATUS_LABELS[v] || v}</Tag>
                     ),
                   },
                   {
@@ -577,11 +403,9 @@ export function OrderDetailPage() {
             },
           },
           { key: 'refunds', label: '退款记录', component: <RefundsTab orderId={order.id} /> },
-          { key: 'changes', label: '改签记录', component: <ChangesTab orderId={order.id} /> },
         ]}
       />
       <RefundModal order={order} open={refundOpen} onClose={() => setRefundOpen(false)} />
-      <ChangeModal order={order} open={changeOpen} onClose={() => setChangeOpen(false)} />
     </>
   );
 }

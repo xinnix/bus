@@ -128,20 +128,6 @@ export class OrderController {
   // P0.5 退票 / 改签（乘客自助，userId 数据隔离）
   // ====================
 
-  /** 退款报价：手续费档位与到账金额（提交前展示用） */
-  @Post(':id/refund-quote')
-  async refundQuote(
-    @CurrentUser() user: any,
-    @Param('id') id: string,
-    @Body() body: { ticketIds?: unknown },
-  ) {
-    const ticketIds = z.array(z.string().min(1)).min(1, '请选择要退的票').parse(body?.ticketIds);
-    return {
-      success: true,
-      data: await this.refundService.quote({ orderId: id, ticketIds, userId: user.id }),
-    };
-  }
-
   /** 申请退票：冻结票 + 微信原路退款（异步，结果以退款单状态为准） */
   @Post(':id/refunds')
   async requestRefund(
@@ -174,23 +160,6 @@ export class OrderController {
     return {
       success: true,
       data: await this.refundService.listByOrder(order.id),
-    };
-  }
-
-  /** 改签：整单改到同线路新班次（仅一次，差价自动原路退回） */
-  @Post(':id/change')
-  async changeTrip(
-    @CurrentUser() user: any,
-    @Param('id') id: string,
-    @Body() body: { newTripId?: unknown },
-  ) {
-    const input = z.object({ newTripId: z.string().min(1) }).parse(body);
-    return {
-      success: true,
-      data: await this.orderService.changeTrip(
-        { orderId: id, newTripId: input.newTripId },
-        { operatorType: 'USER', userId: user.id },
-      ),
     };
   }
 }

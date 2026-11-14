@@ -50,14 +50,14 @@ export default defineUniPages({
       style: { navigationBarTitleText: '电子票', backgroundColor: '#F5FAFF' },
     },
     {
-      path: 'pages/orders/change',
-      type: 'page',
-      style: { navigationBarTitleText: '改签', backgroundColor: '#F5FAFF' },
-    },
-    {
       path: 'pages/checker/index',
       type: 'page',
       style: { navigationBarTitleText: '核销检票', backgroundColor: '#F5FAFF' },
+    },
+    {
+      path: 'pages/checker/trips',
+      type: 'page',
+      style: { navigationBarTitleText: '班次管理', backgroundColor: '#F5FAFF' },
     },
     {
       path: 'pages/profile/index',

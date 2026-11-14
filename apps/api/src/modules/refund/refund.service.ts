@@ -2,12 +2,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { randomInt } from 'crypto';
 import { Prisma } from '@sanqin/database';
-import {
-  computeRefundFee,
-  getRefundTier,
-  REFUND_FEE_RATE,
-  REFUND_STOP_MINUTES,
-} from '@sanqin/shared';
+import { canRefundTrip, REFUND_STOP_MINUTES } from '@sanqin/shared';
 import { PrismaService } from '../../prisma/prisma.service';
 import { WechatPayService } from '../payment/services/wechat-pay.service';
 
@@ -30,19 +25,17 @@ interface RefundOrderRow {
     passengerName: string;
     priceCents: number;
     status: string;
-    changedAt: Date | null;
   }[];
   payment: { amountCents: number; status: string } | null;
 }
 
 /**
- * 退款服务：报价 → 冻结票 → 微信退款 → 回调/对账落地。
+ * 退款服务（P0.5 简化版：全额退，按票或整单；冻结票 → 微信退款 → 回调/对账落地）。
  *
  * 状态约定（对齐主方案 §6.4）：
  * - Ticket.status：UNUSED → REFUNDING（退款中，冻结不可核销/不可再退）→ REFUNDED / 失败回 UNUSED
  * - Order.payStatus：PAID → REFUNDING → REFUNDED / PARTIAL_REFUND（金额口径）
- * - Order.orderStatus：PAID → REFUNDED / PARTIALLY_REFUNDED（票口径：有票真正退掉才算部分退款；
- *   改签差价退款不改订单业务态）；CLOSED 订单退款后保持 CLOSED
+ * - Order.orderStatus：PAID → REFUNDED / PARTIALLY_REFUNDED（票口径）；CLOSED 订单退款后保持 CLOSED
  */
 @Injectable()
 export class RefundService {
@@ -77,7 +70,6 @@ export class RefundService {
             passengerName: true,
             priceCents: true,
             status: true,
-            changedAt: true,
           },
         },
         payment: { select: { amountCents: true, status: true } },
@@ -87,39 +79,12 @@ export class RefundService {
     return order as RefundOrderRow;
   }
 
-  // ====================
-  // 报价
-  // ====================
-
-  /** 退款报价：校验可退状态 + 按发车时刻计算手续费档位 */
-  async quote(input: { orderId: string; ticketIds: string[]; userId?: string | null }) {
-    const { order, tickets, tier, totalCents } = await this.loadQuote(input);
-    const { feeCents, refundCents } = computeRefundFee(totalCents, tier);
-    return {
-      tier,
-      ticketCount: tickets.length,
-      totalCents,
-      feeCents,
-      refundCents,
-      rule: this.describeRule(tier),
-      tickets: tickets.map((t) => ({
-        id: t.id,
-        ticketNo: t.ticketNo,
-        passengerName: t.passengerName,
-        priceCents: t.priceCents,
-      })),
-      trip: order.trip,
-    };
-  }
-
-  private describeRule(tier: 'FREE' | 'FEE' | 'BLOCKED'): string {
-    if (tier === 'FREE') return '发车前 24 小时以上，免手续费';
-    if (tier === 'FEE')
-      return `发车前 2–24 小时，收取 ${Math.round(REFUND_FEE_RATE * 100)}% 手续费`;
-    return `发车前 ${Math.round(REFUND_STOP_MINUTES / 60)} 小时内不可退票`;
-  }
-
-  private async loadQuote(input: { orderId: string; ticketIds: string[]; userId?: string | null }) {
+  /** 退款校验：订单可退状态 + 票 UNUSED + 停退窗口；返回可退票与金额（全额退） */
+  private async loadRefundable(input: {
+    orderId: string;
+    ticketIds: string[];
+    userId?: string | null;
+  }) {
     const order = await this.loadOrder(input.orderId, input.userId);
     if (order.orderStatus === 'CLOSED') throw new BadRequestException('订单已关闭，请联系客服处理');
     if (!['PAID', 'REFUNDING', 'PARTIALLY_REFUNDED'].includes(order.orderStatus)) {
@@ -130,30 +95,24 @@ export class RefundService {
     const tickets = order.tickets.filter((t) => input.ticketIds.includes(t.id));
     if (tickets.length !== input.ticketIds.length)
       throw new BadRequestException('所选车票不属于该订单');
-    const bad = tickets.find((t) => t.status !== 'UNUSED' || t.changedAt);
-    if (bad) {
-      throw new BadRequestException(
-        bad.changedAt
-          ? `车票 ${bad.ticketNo} 为改签票，不可退款`
-          : `车票 ${bad.ticketNo} 当前不可退（已核销/退款中/已退款）`,
-      );
-    }
+    const bad = tickets.find((t) => t.status !== 'UNUSED');
+    if (bad)
+      throw new BadRequestException(`车票 ${bad.ticketNo} 当前不可退（已核销/退款中/已退款）`);
 
-    const tier = getRefundTier(order.trip.serviceDate, order.trip.departureTime);
-    if (tier === 'BLOCKED') {
+    if (!canRefundTrip(order.trip.serviceDate, order.trip.departureTime)) {
       throw new BadRequestException(
         `发车前 ${Math.round(REFUND_STOP_MINUTES / 60)} 小时内不可退票，如遇特殊情况请联系客服`,
       );
     }
     const totalCents = tickets.reduce((sum, t) => sum + t.priceCents, 0);
-    return { order, tickets, tier, totalCents };
+    return { order, tickets, totalCents };
   }
 
   // ====================
   // 按票退款（乘客自助 / 管理端按票退）
   // ====================
 
-  /** 发起按票退款：事务冻结票 + 建退款单，事务外调微信网关 */
+  /** 发起按票退款（全额退）：事务冻结票 + 建退款单，事务外调微信网关 */
   async request(input: {
     orderId: string;
     ticketIds: string[];
@@ -162,8 +121,7 @@ export class RefundService {
     operatorId?: string | null;
     operatorType: RefundOperator['operatorType'];
   }) {
-    const { order, tickets, tier, totalCents } = await this.loadQuote(input);
-    const { feeCents, refundCents } = computeRefundFee(totalCents, tier);
+    const { order, tickets, totalCents } = await this.loadRefundable(input);
     const refundNo = this.generateRefundNo();
 
     await this.prisma.$transaction(async (tx) => {
@@ -180,8 +138,8 @@ export class RefundService {
           orderId: order.id,
           ticketIds: input.ticketIds,
           ticketCount: tickets.length,
-          amountCents: refundCents,
-          feeCents,
+          amountCents: totalCents,
+          feeCents: 0,
           reason: input.reason || null,
           status: 'PROCESSING',
           operatorId: input.operatorId ?? null,
@@ -199,9 +157,9 @@ export class RefundService {
     });
 
     this.logger.log(
-      `退款单创建: ${refundNo} order=${order.id} tickets=${tickets.length} refund=${refundCents}分 fee=${feeCents}分 tier=${tier}`,
+      `退款单创建: ${refundNo} order=${order.id} tickets=${tickets.length} refund=${totalCents}分（全额）`,
     );
-    await this.callGateway(order.orderNo, refundNo, refundCents, input.reason || '乘客申请退票');
+    await this.callGateway(order.orderNo, refundNo, totalCents, input.reason || '乘客申请退票');
 
     const created = await this.prisma.refund.findUnique({ where: { refundNo } });
     return created;
@@ -295,13 +253,9 @@ export class RefundService {
     if (!['PAID', 'REFUNDING', 'PARTIALLY_REFUNDED'].includes(order.orderStatus)) {
       throw new BadRequestException('订单当前不可退款');
     }
-    const refundable = order.tickets.filter((t) => t.status === 'UNUSED' && !t.changedAt);
+    const refundable = order.tickets.filter((t) => t.status === 'UNUSED');
     if (refundable.length === 0) {
-      throw new BadRequestException(
-        order.tickets.some((t) => t.changedAt)
-          ? '订单车票均为改签票（改签后不可退），如需处理请联系财务线下退款'
-          : '订单没有可退的车票（已全部核销或退款）',
-      );
+      throw new BadRequestException('订单没有可退的车票（已全部核销或退款）');
     }
 
     const totalCents = refundable.reduce((sum, t) => sum + t.priceCents, 0);
@@ -348,29 +302,6 @@ export class RefundService {
       select: { amountCents: true },
     });
     return rows.reduce((sum, r) => sum + r.amountCents, 0);
-  }
-
-  /** 改签差价退款（OrderService 调用）：不走票校验，票状态已 CANCELLED 不受影响 */
-  async refundDiff(input: {
-    orderId: string;
-    orderNo: string;
-    amountCents: number;
-    ticketIds: string[];
-    reason: string;
-    operatorType: RefundOperator['operatorType'];
-    operatorId?: string | null;
-  }) {
-    if (input.amountCents <= 0) return null;
-    return this.createAndCall({
-      orderId: input.orderId,
-      orderNo: input.orderNo,
-      amountCents: input.amountCents,
-      feeCents: 0,
-      ticketIds: input.ticketIds,
-      reason: input.reason,
-      operatorId: input.operatorId ?? null,
-      operatorType: input.operatorType,
-    });
   }
 
   private async createAndCall(input: {
@@ -434,7 +365,7 @@ export class RefundService {
           },
         });
         if (updated.count === 0) return;
-        // 票 REFUNDING → REFUNDED；改签差价/关闭单退款不命中（票已 CANCELLED），count 驱动库存释放
+        // 票 REFUNDING → REFUNDED；关闭单退款不命中（票已 CANCELLED），count 驱动库存释放
         const tickets = await tx.ticket.updateMany({
           where: { id: { in: refund.ticketIds as string[] }, status: 'REFUNDING' },
           data: { status: 'REFUNDED' },
@@ -505,7 +436,7 @@ export class RefundService {
       payStatus = 'PARTIAL_REFUND';
       orderStatus = 'PARTIALLY_REFUNDED';
     } else if (refundedCents > 0) {
-      // 改签差价退款：钱部分回退但订单票完整有效
+      // 有退款但票口径无 REFUNDED 票（关闭单场景），业务态保持
       payStatus = 'PARTIAL_REFUND';
       orderStatus = order.orderStatus === 'CLOSED' ? 'CLOSED' : 'PAID';
     } else {

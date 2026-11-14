@@ -134,6 +134,11 @@ function logout() {
   loggedIn.value = false;
 }
 
+/** 班次处置工作台：余票看板 / 调余票 / 上下线 */
+function openTrips() {
+  uni.navigateTo({ url: '/pages/checker/trips' });
+}
+
 async function loadRecords() {
   try {
     const res = await checkerApi.records();
@@ -172,6 +177,8 @@ async function loadRecords() {
           <button class="manual-btn" @tap="verifyManual">核销</button>
         </view>
       </view>
+
+      <button class="records-btn trips-entry" @tap="openTrips">班次管理 · 余票看板 / 上下线</button>
 
       <view
         v-if="result"
@@ -302,6 +309,9 @@ async function loadRecords() {
   background: #e8f1fa;
   color: #1f4e79;
   margin-bottom: 20rpx;
+}
+.trips-entry {
+  margin-top: 4rpx;
 }
 .record-item {
   display: flex;

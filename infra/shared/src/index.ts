@@ -584,6 +584,24 @@ export const CheckerLoginSchema = z.object({
   password: z.string().min(1, '密码不能为空'),
 });
 
+/** 核销员调整班次总票数（余票 = totalSeats - soldSeats 自动变化，不得低于已售） */
+export const CheckerAdjustTripSeatsSchema = z.object({
+  totalSeats: z.number().int().min(1, '总票数必须大于 0').max(999, '总票数不能超过 999'),
+});
+
+/** 核销员上下线班次：仅在售 ⇄ 停售，其余状态流转归管理端 */
+export const CheckerSetTripStatusSchema = z.object({
+  status: z.enum(['ON_SALE', 'STOPPED']),
+});
+
+/** 核销员班次列表查询：date 缺省为今天（YYYY-MM-DD） */
+export const CheckerTripListQuerySchema = z.object({
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, '日期格式应为 YYYY-MM-DD')
+    .optional(),
+});
+
 export type CreateLineInput = z.infer<typeof CreateLineSchema>;
 export type UpdateLineInput = z.infer<typeof UpdateLineSchema>;
 export type CreateStationInput = z.infer<typeof CreateStationSchema>;
@@ -596,6 +614,9 @@ export type VerifyTicketInput = z.infer<typeof VerifyTicketSchema>;
 export type CreateCheckerInput = z.infer<typeof CreateCheckerSchema>;
 export type UpdateCheckerInput = z.infer<typeof UpdateCheckerSchema>;
 export type CheckerLoginInput = z.infer<typeof CheckerLoginSchema>;
+export type CheckerAdjustTripSeatsInput = z.infer<typeof CheckerAdjustTripSeatsSchema>;
+export type CheckerSetTripStatusInput = z.infer<typeof CheckerSetTripStatusSchema>;
+export type CheckerTripListQueryInput = z.infer<typeof CheckerTripListQuerySchema>;
 
 // ===========================
 // 班次售票规则（唯一真理源：下单硬校验与班次列表展示共用）
@@ -615,19 +636,16 @@ export function isTripPurchasable(
   return departure + TRIP_SALE_GRACE_MINUTES * 60 * 1000 > now;
 }
 
+/** 核销员（小程序端）可操作班次的状态范围：上下线/调余票仅限在售与停售，其余状态流转归管理端 */
+export const TRIP_CHECKER_EDITABLE_STATUSES = ['ON_SALE', 'STOPPED'] as const;
+
 // ===========================
-// 退票/改签规则（唯一真理源：乘客自助退改、管理端客服操作、订单创建校验共用）
-// 数值经产品拍板（PRD D6/D7），调整只需改此处
+// 退票规则（唯一真理源：乘客自助退票、管理端退款共用）
+// P0.5 简化拍板（PRD D6）：全额退、不收手续费，仅保留发车前停退窗口；改签后置 P1
 // ===========================
 
 /** 发车前 N 分钟停止退票（退票硬截止窗口） */
 export const REFUND_STOP_MINUTES = 120;
-/** 发车前 ≥N 分钟全额退（免手续费档） */
-export const REFUND_FREE_WINDOW_MINUTES = 24 * 60;
-/** 免手续费档之外（停退窗口 ~ 全额退档之间）的手续费率 */
-export const REFUND_FEE_RATE = 0.05;
-/** 发车前 N 分钟内可改签（改签窗口） */
-export const CHANGE_WINDOW_MINUTES = 120;
 
 /** 由班次日期与发车时间合成发车时刻时间戳（解析失败返回 null） */
 export function getDepartureAt(serviceDate: string, departureTime: string): number | null {
@@ -635,45 +653,18 @@ export function getDepartureAt(serviceDate: string, departureTime: string): numb
   return Number.isNaN(departure) ? null : departure;
 }
 
-export type RefundTier = 'FREE' | 'FEE' | 'BLOCKED';
-
-/** 退票档位判定：FREE=全额退 / FEE=收手续费 / BLOCKED=不可退 */
-export function getRefundTier(
-  serviceDate: string,
-  departureTime: string,
-  now: number = Date.now(),
-): RefundTier {
-  const departure = getDepartureAt(serviceDate, departureTime);
-  if (departure === null) return 'BLOCKED';
-  const minutesToDeparture = (departure - now) / 60_000;
-  if (minutesToDeparture < REFUND_STOP_MINUTES) return 'BLOCKED';
-  if (minutesToDeparture >= REFUND_FREE_WINDOW_MINUTES) return 'FREE';
-  return 'FEE';
-}
-
-/** 按档位计算手续费与实退金额（单位分，手续费四舍五入到分） */
-export function computeRefundFee(
-  priceCentsTotal: number,
-  tier: RefundTier,
-): { feeCents: number; refundCents: number } {
-  if (tier === 'BLOCKED') return { feeCents: priceCentsTotal, refundCents: 0 };
-  if (tier === 'FREE') return { feeCents: 0, refundCents: priceCentsTotal };
-  const feeCents = Math.round(priceCentsTotal * REFUND_FEE_RATE);
-  return { feeCents, refundCents: priceCentsTotal - feeCents };
-}
-
-/** 是否允许改签（发车前窗口内即可；「仅一次/改签后不可退」由调用方按 changedAt 与 OrderChange 记录判定） */
-export function canChangeTrip(
+/** 是否可退票（发车前停退窗口外即可；票状态/归属校验由调用方负责） */
+export function canRefundTrip(
   serviceDate: string,
   departureTime: string,
   now: number = Date.now(),
 ): boolean {
   const departure = getDepartureAt(serviceDate, departureTime);
   if (departure === null) return false;
-  return departure - now >= CHANGE_WINDOW_MINUTES * 60_000;
+  return departure - now >= REFUND_STOP_MINUTES * 60_000;
 }
 
-// P0.5 退票/改签 Schemas
+// P0.5 退票 Schemas
 
 export const RequestRefundSchema = z.object({
   orderId: z.string().min(1),
@@ -681,10 +672,4 @@ export const RequestRefundSchema = z.object({
   reason: z.string().max(200).optional(),
 });
 
-export const ChangeTripSchema = z.object({
-  orderId: z.string().min(1),
-  newTripId: z.string().min(1),
-});
-
 export type RequestRefundInput = z.infer<typeof RequestRefundSchema>;
-export type ChangeTripInput = z.infer<typeof ChangeTripSchema>;
