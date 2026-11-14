@@ -63,6 +63,7 @@ const menuConfig = [
     permission: null,
     children: [
       { key: "/dashboard", label: "数据看板", icon: "DashboardOutlined", permission: Permission.menu.orders },
+      { key: "/reports/daily", label: "日报表", icon: "FileTextOutlined", permission: Permission.menu.orders },
       { key: "/lines", label: "线路管理", icon: "EnvironmentOutlined", permission: Permission.menu.lines },
       { key: "/stations", label: "上下车点", icon: "EnvironmentOutlined", permission: Permission.menu.stations },
       { key: "/schedule-templates", label: "班次模板", icon: "ScheduleOutlined", permission: Permission.menu.scheduleTemplates },

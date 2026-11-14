@@ -59,4 +59,17 @@ test.describe('Admin 票务管理主路径（P0）', () => {
     await page.goto('/checkers');
     await expect(page.getByRole('heading', { name: '核销员管理' })).toBeVisible();
   });
+
+  test('P0.5：日报表页聚合卡片与表格可见', async ({ page }) => {
+    await login(page);
+
+    await page.goto('/reports/daily');
+    await expect(
+      page.locator('.ant-statistic-title').filter({ hasText: '支付金额' }),
+    ).toBeVisible();
+    await expect(page.locator('.ant-statistic-title').filter({ hasText: '净收入' })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: '订单数' })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: '退款金额' })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: '净收入' })).toBeVisible();
+  });
 });

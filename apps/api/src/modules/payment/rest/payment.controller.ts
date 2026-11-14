@@ -12,6 +12,7 @@ import {
 import { Request, Response } from 'express';
 import { WechatPayService } from '../services/wechat-pay.service';
 import { PaymentService } from '../services/payment.service';
+import { getRefundService } from '../../refund/refund.bridge';
 
 @Controller('payments')
 export class PaymentController {
@@ -64,6 +65,18 @@ export class PaymentController {
 
       res.status(200).send();
       this.logger.log(`支付回调验签成功: ${payment.orderId} → ${payment.transactionId}`);
+
+      // 竞态兜底：回调到达前订单已被超时任务关闭（钱已收、票已取消）→ 自动全额退款
+      if (handled.orderClosed) {
+        try {
+          const result = await getRefundService().autoRefundClosedOrder(payment.orderId);
+          this.logger.log(`竞态自动退款结果: ${JSON.stringify(result)}`);
+        } catch (refundError: any) {
+          this.logger.error(
+            `竞态自动退款失败 order=${payment.orderId}（退款单可能已建立，可管理端重试）: ${refundError?.message}`,
+          );
+        }
+      }
     } catch (error: any) {
       this.logger.error('支付回调处理失败', error);
       if (!res.headersSent) {
@@ -96,10 +109,19 @@ export class PaymentController {
         'wechatpay-serial': headers['wechatpay-serial'],
       });
 
-      res.status(200).send();
+      // 业务落地（幂等）：SUCCESS → 票 REFUNDED + 释放库存 + 订单聚合；非 SUCCESS → FAILED 留人工。
+      // 处理失败返回 500 让微信重投（handleRefundResult 幂等，重投安全）。
+      await getRefundService().handleRefundResult({
+        refundNo: refund.refundNo,
+        refundStatus: refund.refundStatus,
+        gatewayRefundNo: refund.refundId,
+        refundedAt: refund.refundedAt,
+      });
 
-      // 业务方在此处实现退款成功后的业务逻辑
-      this.logger.log(`退款回调验签成功: ${refund.orderNo}`);
+      res.status(200).send();
+      this.logger.log(
+        `退款回调验签成功: ${refund.orderNo} refundNo=${refund.refundNo} status=${refund.refundStatus}`,
+      );
     } catch (error: any) {
       this.logger.error('退款回调处理失败', error);
       if (!res.headersSent) {

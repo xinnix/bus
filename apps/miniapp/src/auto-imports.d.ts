@@ -118,6 +118,8 @@ declare global {
   const refThrottled: typeof import('@vueuse/core').refThrottled;
   const refWithControl: typeof import('@vueuse/core').refWithControl;
   const refreshCheckerIdentity: typeof import('./utils/checkerIdentity').refreshCheckerIdentity;
+  const requestDepartureSubscribe: typeof import('./composables/pay').requestDepartureSubscribe;
+  const requestPaidSubscribe: typeof import('./composables/pay').requestPaidSubscribe;
   const requestWechatPay: typeof import('./composables/pay').requestWechatPay;
   const resolveComponent: typeof import('vue').resolveComponent;
   const resolveRef: (typeof import('@vueuse/core'))['resolveRef'];
@@ -508,6 +510,12 @@ declare module 'vue' {
     readonly refWithControl: UnwrapRef<(typeof import('@vueuse/core'))['refWithControl']>;
     readonly refreshCheckerIdentity: UnwrapRef<
       (typeof import('./utils/checkerIdentity'))['refreshCheckerIdentity']
+    >;
+    readonly requestDepartureSubscribe: UnwrapRef<
+      (typeof import('./composables/pay'))['requestDepartureSubscribe']
+    >;
+    readonly requestPaidSubscribe: UnwrapRef<
+      (typeof import('./composables/pay'))['requestPaidSubscribe']
     >;
     readonly requestWechatPay: UnwrapRef<(typeof import('./composables/pay'))['requestWechatPay']>;
     readonly resolveComponent: UnwrapRef<(typeof import('vue'))['resolveComponent']>;

@@ -3,6 +3,7 @@ import { computed, ref } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import { orderApi } from '@/api/ticketing';
 import type { Order, Ticket } from '@/api/ticketing';
+import { requestDepartureSubscribe } from '@/composables/pay';
 
 definePage({
   style: { navigationBarTitleText: '我的车票', backgroundColor: '#F5FAFF' },
@@ -17,6 +18,8 @@ const TABS = [
 const TICKET_STATUS_LABELS: Record<string, string> = {
   UNUSED: '待使用',
   CHECKED_IN: '已核销',
+  REFUNDING: '退款中',
+  REFUNDED: '已退款',
   CANCELLED: '已取消',
 };
 
@@ -44,10 +47,21 @@ onShow(async () => {
   await load();
 });
 
-/** 已购车票：按订单状态过滤（PAID 待出行 / COMPLETED 已完成）；发车时间不过影响归类 */
+/** 已购车票：待出行 tab 含退款中间态（票仍有效）；已完成仅按订单完成态归类（P0 产品语义） */
 const filteredOrders = computed(() =>
-  orders.value.filter((o) => o.orderStatus === activeTab.value),
+  orders.value.filter((o) =>
+    activeTab.value === 'PAID'
+      ? ['PAID', 'REFUNDING', 'PARTIALLY_REFUNDED'].includes(o.orderStatus)
+      : o.orderStatus === activeTab.value,
+  ),
 );
+
+async function subscribeDeparture() {
+  const result = await requestDepartureSubscribe();
+  if (result === 'granted') uni.showToast({ title: '已开启发车提醒', icon: 'success' });
+  else if (result === 'rejected') uni.showToast({ title: '未开启提醒', icon: 'none' });
+  else uni.showToast({ title: '发车提醒暂未开放', icon: 'none' });
+}
 
 function ticketLabel(ticket: Ticket) {
   return TICKET_STATUS_LABELS[ticket.status] || ticket.status;
@@ -76,6 +90,12 @@ function goBuy() {
       </view>
     </view>
 
+    <view class="remind-bar" @tap="subscribeDeparture">
+      <text class="remind-icon">🔔</text>
+      <text class="remind-text">开启发车提醒，出票/发车前自动通知</text>
+      <text class="remind-arrow">›</text>
+    </view>
+
     <view v-if="loading" class="empty">加载中...</view>
     <view v-else-if="filteredOrders.length === 0" class="empty">
       {{ activeTab === 'PAID' ? '还没有待出行的车票' : '暂无已完成行程' }}
@@ -100,6 +120,7 @@ function goBuy() {
           <view v-for="ticket in order.tickets" :key="ticket.id" class="ticket-row">
             <text class="passenger">{{ ticket.passengerName }}</text>
             <view class="row-right">
+              <text v-if="ticket.changedAt" class="ticket-status changed">改签</text>
               <text class="ticket-status" :class="[`st-${ticket.status}`]">
                 {{ ticketLabel(ticket) }}
               </text>
@@ -210,6 +231,39 @@ function goBuy() {
 .st-CANCELLED {
   color: #7a8b9a;
   background: rgba(122, 139, 154, 0.12);
+}
+.st-REFUNDING {
+  color: #b45309;
+  background: rgba(180, 83, 9, 0.12);
+}
+.st-REFUNDED {
+  color: #b91c1c;
+  background: rgba(185, 28, 28, 0.12);
+}
+.ticket-status.changed {
+  color: #7c3aed;
+  background: rgba(124, 58, 237, 0.1);
+}
+.remind-bar {
+  display: flex;
+  align-items: center;
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 20rpx 26rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 8rpx 24rpx rgba(31, 78, 121, 0.06);
+}
+.remind-icon {
+  margin-right: 12rpx;
+  font-size: 26rpx;
+}
+.remind-text {
+  flex: 1;
+  font-size: 24rpx;
+  color: #1f2d3d;
+}
+.remind-arrow {
+  color: #c0ccd8;
 }
 .check-code {
   font-size: 24rpx;

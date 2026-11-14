@@ -30,6 +30,9 @@ export interface Ticket {
   passengerName: string;
   checkCode: string;
   status: string;
+  /** 改签产生的新票打标：改签后不可再退/再改 */
+  changedAt?: string | null;
+  priceCents?: number;
   qrToken?: string;
 }
 
@@ -46,6 +49,7 @@ export interface Order {
   line?: Line;
   trip?: Trip;
   tickets?: Ticket[];
+  payment?: { status: string; amountCents: number } | null;
   payParams?: any;
 }
 
@@ -117,6 +121,77 @@ export const orderApi = {
       {},
       { showLoading: true, loadingText: '模拟支付中...' },
     ),
+};
+
+// ====================
+// P0.5 退票 / 改签 / 订阅消息
+// ====================
+
+export interface RefundQuote {
+  tier: 'FREE' | 'FEE' | 'BLOCKED';
+  ticketCount: number;
+  totalCents: number;
+  feeCents: number;
+  refundCents: number;
+  rule: string;
+}
+
+export interface RefundRecord {
+  id: string;
+  refundNo: string;
+  amountCents: number;
+  feeCents: number;
+  status: string;
+  operatorType: string;
+  reason?: string | null;
+  createdAt: string;
+  completedAt?: string | null;
+}
+
+export const refundApi = {
+  quote: (orderId: string, ticketIds: string[]) =>
+    http.post<RefundQuote>(
+      `/orders/${orderId}/refund-quote`,
+      { ticketIds },
+      { showLoading: false },
+    ),
+
+  request: (orderId: string, ticketIds: string[], reason?: string) =>
+    http.post<RefundRecord>(
+      `/orders/${orderId}/refunds`,
+      { ticketIds, reason },
+      { showLoading: true, loadingText: '退款提交中...' },
+    ),
+
+  list: (orderId: string) =>
+    http.get<RefundRecord[]>(`/orders/${orderId}/refunds`, undefined, { showLoading: false }),
+};
+
+export interface ChangeResult {
+  changeNo: string;
+  priceDiffCents: number;
+  tickets: Ticket[];
+  refund?: RefundRecord | null;
+}
+
+export const changeApi = {
+  submit: (orderId: string, newTripId: string) =>
+    http.post<ChangeResult>(
+      `/orders/${orderId}/change`,
+      { newTripId },
+      { showLoading: true, loadingText: '改签处理中...' },
+    ),
+};
+
+export interface SubscribeTemplates {
+  enabled: boolean;
+  paidTemplateId?: string | null;
+  departureTemplateId?: string | null;
+}
+
+export const subscribeApi = {
+  templates: () =>
+    http.get<SubscribeTemplates>('/subscribe/templates', undefined, { showLoading: false }),
 };
 
 export const checkerApi = {

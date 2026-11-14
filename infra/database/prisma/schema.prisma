@@ -594,6 +594,8 @@ model Trip {
   line     Line               @relation(fields: [lineId], references: [id], onDelete: Restrict)
   orders   Order[]
   checkIns CheckIn[]
+  changesAsOld OrderChange[] @relation("OldTripChanges")
+  changesAsNew OrderChange[] @relation("NewTripChanges")
 
   @@unique([lineId, serviceDate, departureTime])
   @@index([lineId, serviceDate, status])
@@ -614,8 +616,8 @@ model Order {
   contactPhone       String
   ticketCount        Int
   totalAmountCents   Int
-  payStatus          String    @default("UNPAID") // UNPAID | PENDING | PAID | CLOSED
-  orderStatus        String    @default("PENDING_PAYMENT") // PENDING_PAYMENT | PAID | COMPLETED | CLOSED
+  payStatus          String    @default("UNPAID") // UNPAID | PENDING | PAID | REFUNDING | PARTIAL_REFUND | REFUNDED | CLOSED
+  orderStatus        String    @default("PENDING_PAYMENT") // PENDING_PAYMENT | PAID | COMPLETED | REFUNDING | PARTIALLY_REFUNDED | REFUNDED | CLOSED
   expiresAt          DateTime?
   paidAt             DateTime?
   createdAt          DateTime  @default(now())
@@ -626,6 +628,8 @@ model Order {
   trip     Trip     @relation(fields: [tripId], references: [id], onDelete: Restrict)
   tickets  Ticket[]
   payment  Payment?
+  refunds  Refund[]
+  changes  OrderChange[]
 
   @@index([userId, createdAt])
   @@index([tripId])
@@ -641,10 +645,12 @@ model Ticket {
   passengerName String
   phone         String?
   priceCents    Int
-  status        String    @default("UNUSED") // UNUSED | CHECKED_IN | CANCELLED
+  status        String    @default("UNUSED") // UNUSED | CHECKED_IN | REFUNDING | REFUNDED | CANCELLED
   checkCode     String    @unique
   checkedAt     DateTime?
   checkedBy     String?
+  changedAt     DateTime? // 改签产生的新票打标：改签后不可再退/再改
+  departureNotifiedAt DateTime? // 发车提醒订阅消息已发时间（去重）
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -673,6 +679,55 @@ model Payment {
 
   @@index([status])
   @@map("payments")
+}
+
+model Refund {
+  id              String    @id @default(cuid())
+  refundNo        String    @unique // 退款单号，即微信 out_refund_no（重试幂等键）
+  orderId         String
+  ticketIds       Json // 退款票 ID 数组
+  ticketCount     Int
+  amountCents     Int // 实退金额（分）= 票价合计 - feeCents
+  feeCents        Int       @default(0) // 手续费（分）
+  reason          String?
+  status          String    @default("PROCESSING") // PENDING | PROCESSING | SUCCESS | FAILED
+  gatewayRefundNo String? // 微信 refund_id
+  operatorId      String? // 管理端操作人（admins.id）；乘客自助为空
+  operatorType    String    @default("USER") // USER | ADMIN | SYSTEM（系统自动退款）
+  failReason      String?
+  createdAt       DateTime  @default(now())
+  completedAt     DateTime?
+  updatedAt       DateTime  @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@index([status])
+  @@map("refunds")
+}
+
+model OrderChange {
+  id             String   @id @default(cuid())
+  changeNo       String   @unique
+  orderId        String
+  oldTripId      String
+  newTripId      String
+  oldTicketIds   Json // 改签前票 ID 数组（CANCELLED）
+  newTicketIds   Json // 改签后新票 ID 数组（changedAt 打标）
+  priceDiffCents Int      @default(0) // 退回差价（分，新价 ≤ 旧价）；P0.5 不支持补差
+  feeCents       Int      @default(0)
+  status         String   @default("SUCCESS") // SUCCESS | FAILED
+  operatorType   String   @default("USER") // USER | ADMIN
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  order   Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  oldTrip Trip  @relation("OldTripChanges", map: "order_changes_old_trip_id_fkey", fields: [oldTripId], references: [id], onDelete: Restrict)
+  newTrip Trip  @relation("NewTripChanges", map: "order_changes_new_trip_id_fkey", fields: [newTripId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@index([newTripId])
+  @@map("order_changes")
 }
 
 model Checker {

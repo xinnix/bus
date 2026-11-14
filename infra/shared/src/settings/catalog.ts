@@ -131,6 +131,45 @@ export const SETTING_GROUPS: SettingGroupDef[] = [
       },
     ],
   },
+  {
+    key: 'subscribe',
+    label: '订阅消息',
+    description:
+      '微信小程序订阅消息（出票通知 / 发车提醒）：先在微信公众平台申请同类目模板，再将模板 ID 填入',
+    guideLabel: '微信公众平台',
+    guideUrl: 'https://mp.weixin.qq.com',
+    fields: [
+      {
+        key: 'SUBSCRIBE_ENABLED',
+        label: '启用订阅消息',
+        type: 'text',
+        isSecret: false,
+        help: '总开关：值为 true 时才发送；模板 ID 未配置的项静默跳过',
+        placeholder: 'true',
+        optional: true,
+        options: [
+          { label: '启用（true）', value: 'true' },
+          { label: '停用（false）', value: 'false' },
+        ],
+      },
+      {
+        key: 'SUBSCRIBE_TEMPLATE_PAID',
+        label: '出票通知模板 ID',
+        type: 'text',
+        isSecret: false,
+        help: '支付成功出票后发送；模板关键词需含「线路/发车时间/订单号」类字段',
+        optional: true,
+      },
+      {
+        key: 'SUBSCRIBE_TEMPLATE_DEPARTURE',
+        label: '发车提醒模板 ID',
+        type: 'text',
+        isSecret: false,
+        help: '发车前 30 分钟发送（乘客需在小程序内点击订阅授权）；模板关键词需含「线路/发车时间/上车点」类字段',
+        optional: true,
+      },
+    ],
+  },
 ];
 
 /** key 别名归一（读取时映射到目录键）——当前无别名，机制保留 */

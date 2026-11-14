@@ -11,6 +11,7 @@ type _LocationUrl =
   "/pages/tickets/index" |
   "/pages/orders/index" |
   "/pages/orders/detail" |
+  "/pages/orders/change" |
   "/pages/checker/index" |
   "/pages/profile/index" |
   "/pages/agreement/user-agreement" |
@@ -24,7 +25,7 @@ interface NavigateToOptions {
 interface RedirectToOptions extends NavigateToOptions {}
 
 interface SwitchTabOptions {
-  url: '/pages/index' | '/pages/tickets/index' | '/pages/profile/index';
+  url: "/pages/index" | "/pages/tickets/index" | "/pages/profile/index"
 }
 
 type ReLaunchOptions = NavigateToOptions | SwitchTabOptions;
@@ -36,6 +37,6 @@ declare interface Uni {
   reLaunch(options: UniNamespace.ReLaunchOptions & ReLaunchOptions): void;
 }
 
-declare module 'virtual:uni-pages' {
+declare module "virtual:uni-pages" {
   export type LocationUrl = _LocationUrl;
 }

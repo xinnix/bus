@@ -12,6 +12,11 @@ import {
   AssignRoleSchema,
   BatchAssignRolesSchema,
   ResetPasswordSchema,
+  getDepartureAt,
+  getRefundTier,
+  computeRefundFee,
+  canChangeTrip,
+  RequestRefundSchema,
 } from './index';
 
 describe('Auth Schemas', () => {
@@ -174,5 +179,60 @@ describe('Agent Schemas', () => {
     it('accepts nullable fields', () => {
       expect(UpdateAgentSchema.parse({ description: null })).toEqual({ description: null });
     });
+  });
+});
+
+describe('退票/改签规则（P0.5）', () => {
+  // 发车时刻固定为本地 2026-11-15 10:00，now 相对发车时刻偏移
+  const departureBase = new Date(2026, 10, 15, 10, 0, 0);
+  const spec = { serviceDate: '2026-11-15', departureTime: '10:00' };
+  const nowAt = (offsetHours: number) => departureBase.getTime() + offsetHours * 3600_000;
+
+  it('getDepartureAt 合成本地发车时刻，非法输入返回 null', () => {
+    expect(getDepartureAt('2026-11-15', '10:00')).toBe(departureBase.getTime());
+    expect(getDepartureAt('bad-date', '10:00')).toBeNull();
+    expect(getDepartureAt('2026-11-15', '25:00')).toBeNull();
+  });
+
+  it('发车前 ≥24h 全额退（FREE 档）', () => {
+    expect(getRefundTier(spec.serviceDate, spec.departureTime, nowAt(-25))).toBe('FREE');
+    expect(getRefundTier(spec.serviceDate, spec.departureTime, nowAt(-24))).toBe('FREE');
+  });
+
+  it('发车前 2h–24h 收 5% 手续费（FEE 档）', () => {
+    expect(getRefundTier(spec.serviceDate, spec.departureTime, nowAt(-5))).toBe('FEE');
+    // 恰好 2h（120 分钟）仍属 FEE（< 120 分钟才 BLOCKED）
+    expect(getRefundTier(spec.serviceDate, spec.departureTime, nowAt(-2))).toBe('FEE');
+  });
+
+  it('发车前 <2h 不可退（BLOCKED 档）', () => {
+    expect(getRefundTier(spec.serviceDate, spec.departureTime, nowAt(-1.9))).toBe('BLOCKED');
+    // 发车后同样不可退
+    expect(getRefundTier(spec.serviceDate, spec.departureTime, nowAt(1))).toBe('BLOCKED');
+    // 班次时间解析失败视为不可退
+    expect(getRefundTier('bad', 'bad')).toBe('BLOCKED');
+  });
+
+  it('computeRefundFee 各档位计算，手续费四舍五入到分', () => {
+    expect(computeRefundFee(1000, 'FREE')).toEqual({ feeCents: 0, refundCents: 1000 });
+    // 999 × 5% = 49.95 → 50
+    expect(computeRefundFee(999, 'FEE')).toEqual({ feeCents: 50, refundCents: 949 });
+    expect(computeRefundFee(1000, 'FEE')).toEqual({ feeCents: 50, refundCents: 950 });
+    // BLOCKED 输出零可退（前置校验兜底）
+    expect(computeRefundFee(1000, 'BLOCKED')).toEqual({ feeCents: 1000, refundCents: 0 });
+  });
+
+  it('canChangeTrip 与退票共用窗口：≥2h 可改，<2h 不可改', () => {
+    expect(canChangeTrip(spec.serviceDate, spec.departureTime, nowAt(-25))).toBe(true);
+    expect(canChangeTrip(spec.serviceDate, spec.departureTime, nowAt(-2))).toBe(true);
+    expect(canChangeTrip(spec.serviceDate, spec.departureTime, nowAt(-1.9))).toBe(false);
+    expect(canChangeTrip(spec.serviceDate, spec.departureTime, nowAt(0.5))).toBe(false);
+    expect(canChangeTrip('bad', 'bad')).toBe(false);
+  });
+
+  it('RequestRefundSchema 校验：至少一张票、orderId 必填', () => {
+    expect(() => RequestRefundSchema.parse({ orderId: 'o1', ticketIds: [] })).toThrow();
+    expect(() => RequestRefundSchema.parse({ ticketIds: ['t1'] })).toThrow();
+    expect(RequestRefundSchema.parse({ orderId: 'o1', ticketIds: ['t1'] })).toBeTruthy();
   });
 });

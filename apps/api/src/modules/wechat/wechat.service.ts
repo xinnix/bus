@@ -171,6 +171,49 @@ export class WechatService {
   }
 
   /**
+   * 发送小程序订阅消息（best-effort：用户未订阅/拒收不视为错误，由调用方决定是否忽略）
+   * 文档: https://developers.weixin.qq.com/miniprogram/dev/OpenApiDoc/mp-message-management/subscribe-message/sendMessage.html
+   *
+   * @param params.openid 接收用户 openid
+   * @param params.templateId 订阅消息模板 ID（微信公众平台申请）
+   * @param params.page 点击通知跳转页（可选，须为已发布页面）
+   * @param params.data 模板数据，键为模板字段 ID（如 thing1/time2），值为 { value }
+   * @returns errcode（0=成功；43101=用户未订阅/拒收）
+   */
+  async sendSubscribeMessage(params: {
+    openid: string;
+    templateId: string;
+    page?: string;
+    data: Record<string, { value: string }>;
+  }): Promise<{ errcode: number; errmsg?: string }> {
+    const accessToken = await this.getAccessToken();
+    const url = `https://api.weixin.qq.com/cgi-bin/message/subscribe/send?access_token=${accessToken}`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        touser: params.openid,
+        template_id: params.templateId,
+        page: params.page,
+        data: params.data,
+      }),
+    });
+    const result = await response.json();
+
+    if (result.errcode && result.errcode !== 0) {
+      this.logger.warn(
+        `订阅消息发送未成功 openid=${params.openid.slice(0, 8)}... template=${params.templateId} errcode=${result.errcode} errmsg=${result.errmsg}`,
+      );
+    } else {
+      this.logger.log(
+        `订阅消息已发送 openid=${params.openid.slice(0, 8)}... template=${params.templateId}`,
+      );
+    }
+    return { errcode: result.errcode ?? 0, errmsg: result.errmsg };
+  }
+
+  /**
    * 生成小程序码（无数量限制版本）
    * 文档: https://developers.weixin.qq.com/miniprogram/dev/OpenApiDoc/qrcode-link/qr-code/getUnlimitedQRCode.html
    *

@@ -80,6 +80,8 @@ export const Permission = {
   order: {
     read: 'order:read',
     update: 'order:update',
+    refund: 'order:refund',
+    change: 'order:change',
   },
   ticket: {
     read: 'ticket:read',

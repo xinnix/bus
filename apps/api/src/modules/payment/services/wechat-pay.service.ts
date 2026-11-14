@@ -494,8 +494,33 @@ export class WechatPayService implements OnModuleInit {
         paidAt: data.success_time ? new Date(data.success_time) : undefined,
       };
     } catch (error: any) {
-      this.logger.error('查询订单状态失败', error.response?.data || error);
+      this.logger.error(`查询订单状态失败: ${orderNo}`, error);
       throw new Error(`查询订单状态失败: ${error.response?.data?.message || error.message}`);
+    }
+  }
+
+  /**
+   * 查询单笔退款状态（对账用，按商户退款单号 out_refund_no）
+   */
+  async queryRefund(outRefundNo: string): Promise<{
+    refundStatus: string;
+    refundId?: string;
+    successTime?: Date;
+    refundAmount?: number;
+  }> {
+    this.ensureConfigured();
+
+    try {
+      const { data } = await (this.wxpay! as any).v3.refund.domestic.refunds[outRefundNo].get({});
+      return {
+        refundStatus: (data as any).status,
+        refundId: (data as any).refund_id,
+        successTime: (data as any).success_time ? new Date((data as any).success_time) : undefined,
+        refundAmount: (data as any).amount?.refund,
+      };
+    } catch (error: any) {
+      this.logger.error(`查询退款状态失败: ${outRefundNo}`, error);
+      throw new Error(`查询退款状态失败: ${error.response?.data?.message || error.message}`);
     }
   }
 }

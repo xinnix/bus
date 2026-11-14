@@ -146,6 +146,9 @@ export const ORDER_STATUS_LABELS: Record<string, string> = {
   PENDING_PAYMENT: '待支付',
   PAID: '已支付',
   COMPLETED: '已完成',
+  REFUNDING: '退款中',
+  PARTIALLY_REFUNDED: '部分退款',
+  REFUNDED: '已退款',
   CLOSED: '已关闭',
 };
 
@@ -153,5 +156,23 @@ export const PAY_STATUS_LABELS: Record<string, string> = {
   UNPAID: '未支付',
   PENDING: '支付中',
   PAID: '已支付',
+  REFUNDING: '退款中',
+  PARTIAL_REFUND: '部分退款',
+  REFUNDED: '已退款',
   CLOSED: '已关闭',
+};
+
+export const TICKET_STATUS_LABELS: Record<string, string> = {
+  UNUSED: '未使用',
+  CHECKED_IN: '已核销',
+  REFUNDING: '退款中',
+  REFUNDED: '已退款',
+  CANCELLED: '已取消',
+};
+
+export const REFUND_STATUS_LABELS: Record<string, string> = {
+  PENDING: '待提交',
+  PROCESSING: '退款中',
+  SUCCESS: '退款成功',
+  FAILED: '退款失败',
 };

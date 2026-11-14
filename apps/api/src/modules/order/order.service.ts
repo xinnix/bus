@@ -2,16 +2,20 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { randomInt } from 'crypto';
 import { Prisma } from '@sanqin/database';
-import { isTripPurchasable } from '@sanqin/shared';
+import { canChangeTrip, CHANGE_WINDOW_MINUTES, isTripPurchasable } from '@sanqin/shared';
 import { BaseService } from '../../common/base.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { RefundService } from '../refund/refund.service';
 import type { CreateOrderInput } from '@sanqin/shared';
 
 @Injectable()
 export class OrderService extends BaseService<'order'> {
   private readonly logger = new Logger(OrderService.name);
 
-  constructor(prisma: PrismaService) {
+  constructor(
+    prisma: PrismaService,
+    private readonly refundService: RefundService,
+  ) {
     super(prisma, 'order');
   }
 
@@ -220,5 +224,170 @@ export class OrderService extends BaseService<'order'> {
         });
       });
     }
+  }
+
+  // ====================
+  // P0.5 改签
+  // ====================
+
+  private generateChangeNo(): string {
+    const now = new Date();
+    const ts =
+      now.getFullYear().toString() +
+      String(now.getMonth() + 1).padStart(2, '0') +
+      String(now.getDate()).padStart(2, '0') +
+      String(now.getHours()).padStart(2, '0') +
+      String(now.getMinutes()).padStart(2, '0') +
+      String(now.getSeconds()).padStart(2, '0');
+    return `CH${ts}${String(randomInt(0, 10000)).padStart(4, '0')}`;
+  }
+
+  /**
+   * 改签：整单所有票改到同线路新班次。
+   * 规则（PRD D7）：每单仅一次；发车前窗口内；仅支持改到同价或更低价班次（差价原路退回）；
+   * 改签后新票打 changedAt 标记（不可再退/再改）；上下车站保留原选择（同线路站点集一致）。
+   */
+  async changeTrip(
+    input: { orderId: string; newTripId: string },
+    operator: {
+      operatorType: 'USER' | 'ADMIN';
+      userId?: string | null;
+      operatorId?: string | null;
+    },
+  ) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: input.orderId },
+      include: {
+        tickets: true,
+        trip: true,
+        changes: true,
+        payment: { select: { status: true, amountCents: true } },
+      },
+    });
+    if (!order || (operator.userId && order.userId !== operator.userId)) {
+      throw new NotFoundException('订单不存在');
+    }
+    if (order.payment?.status !== 'PAID') throw new BadRequestException('订单未完成支付');
+    if (order.orderStatus !== 'PAID') throw new BadRequestException('订单当前不可改签');
+
+    if (order.changes.length > 0) throw new BadRequestException('每单仅支持一次改签');
+    const inflightRefunds = await this.prisma.refund.count({
+      where: { orderId: order.id, status: 'PROCESSING' },
+    });
+    if (inflightRefunds > 0) throw new BadRequestException('存在退款处理中，请稍后再试');
+    const notUsable = order.tickets.find((t) => t.status !== 'UNUSED');
+    if (notUsable) {
+      throw new BadRequestException(
+        `车票 ${notUsable.ticketNo} 已核销或退款，整单改签需全部车票未使用（可对剩余票退票）`,
+      );
+    }
+    if (!canChangeTrip(order.trip.serviceDate, order.trip.departureTime)) {
+      throw new BadRequestException(
+        `发车前 ${Math.round(CHANGE_WINDOW_MINUTES / 60)} 小时内不可改签`,
+      );
+    }
+
+    const newTrip = await this.prisma.trip.findUnique({ where: { id: input.newTripId } });
+    if (!newTrip) throw new NotFoundException('目标班次不存在');
+    if (newTrip.id === order.tripId) throw new BadRequestException('不能改签到原班次');
+    if (newTrip.lineId !== order.lineId) throw new BadRequestException('只能改签到同一线路的班次');
+    if (newTrip.status !== 'ON_SALE') throw new BadRequestException('目标班次当前不可售');
+    if (!isTripPurchasable(newTrip.serviceDate, newTrip.departureTime)) {
+      throw new BadRequestException('目标班次已停止购票（发车后 30 分钟为购票截止）');
+    }
+    if (newTrip.priceCents > order.trip.priceCents) {
+      throw new BadRequestException('暂不支持改签到更高票价班次，请退票后重新购买');
+    }
+
+    const oldTicketIds = order.tickets.map((t) => t.id);
+    const priceDiffCents = (order.trip.priceCents - newTrip.priceCents) * order.tickets.length;
+    const changeNo = this.generateChangeNo();
+    const now = new Date();
+
+    const newTickets = await this.prisma.$transaction(async (tx) => {
+      // 新班次原子锁库存（同下单防超卖）
+      const locked = await tx.trip.updateMany({
+        where: {
+          id: newTrip.id,
+          status: 'ON_SALE',
+          soldSeats: { lte: newTrip.totalSeats - order.tickets.length },
+        },
+        data: { soldSeats: { increment: order.tickets.length } },
+      });
+      if (locked.count === 0) throw new BadRequestException('目标班次余票不足，请选择其他班次');
+
+      const cancelled = await tx.ticket.updateMany({
+        where: { id: { in: oldTicketIds }, status: 'UNUSED' },
+        data: { status: 'CANCELLED' },
+      });
+      if (cancelled.count !== oldTicketIds.length) {
+        throw new BadRequestException('车票状态已变化，请刷新后重试');
+      }
+
+      await tx.trip.updateMany({
+        where: { id: order.tripId, soldSeats: { gte: oldTicketIds.length } },
+        data: { soldSeats: { decrement: oldTicketIds.length } },
+      });
+
+      const tickets = [];
+      for (let i = 0; i < order.tickets.length; i++) {
+        const old = order.tickets[i];
+        tickets.push(
+          await tx.ticket.create({
+            data: {
+              ticketNo: `${order.orderNo}C${i + 1}`,
+              orderId: order.id,
+              passengerName: old.passengerName,
+              phone: old.phone,
+              priceCents: newTrip.priceCents,
+              status: 'UNUSED',
+              checkCode: await this.uniqueCheckCode(tx),
+              changedAt: now,
+            },
+          }),
+        );
+      }
+
+      await tx.order.update({
+        where: { id: order.id },
+        data: { tripId: newTrip.id }, // 订单随新班次：QR token 有效期、核销记录按新班次归属
+      });
+
+      await tx.orderChange.create({
+        data: {
+          changeNo,
+          orderId: order.id,
+          oldTripId: order.tripId,
+          newTripId: newTrip.id,
+          oldTicketIds,
+          newTicketIds: tickets.map((t) => t.id),
+          priceDiffCents,
+          feeCents: 0,
+          status: 'SUCCESS',
+          operatorType: operator.operatorType,
+        },
+      });
+
+      return tickets;
+    });
+
+    this.logger.log(
+      `改签成功: ${changeNo} order=${order.id} ${order.tripId} → ${newTrip.id} 差价退=${priceDiffCents}分`,
+    );
+
+    let refund = null;
+    if (priceDiffCents > 0) {
+      refund = await this.refundService.refundDiff({
+        orderId: order.id,
+        orderNo: order.orderNo,
+        amountCents: priceDiffCents,
+        ticketIds: oldTicketIds,
+        reason: `改签差价退款（${changeNo}）`,
+        operatorType: operator.operatorType,
+        operatorId: operator.operatorId ?? null,
+      });
+    }
+
+    return { changeNo, tickets: newTickets, priceDiffCents, refund };
   }
 }

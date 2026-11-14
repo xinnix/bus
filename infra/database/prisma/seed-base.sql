@@ -79,6 +79,8 @@ VALUES
   ('p65', 'trip', 'delete', '删除班次'),
   ('p66', 'order', 'read', '查看订单'),
   ('p67', 'order', 'update', '更新订单'),
+  ('p82', 'order', 'refund', '订单退款'),
+  ('p83', 'order', 'change', '订单改签'),
   ('p68', 'ticket', 'read', '查看车票'),
   ('p69', 'checkin', 'read', '查看核销记录'),
   ('p70', 'checkin', 'create', '执行核销'),

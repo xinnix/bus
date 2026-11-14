@@ -15,6 +15,8 @@ import { PermissionModule } from './modules/permission/module';
 import { UploadModule } from './modules/upload/module';
 import { WechatModule } from './modules/wechat/wechat.module';
 import { PaymentModule } from './modules/payment/module';
+import { RefundModule } from './modules/refund/module';
+import { NotifyModule } from './modules/notify/module';
 import { LineModule } from './modules/line/module';
 import { StationModule } from './modules/station/module';
 import { TicketScheduleModule } from './modules/schedule/module';
@@ -57,6 +59,8 @@ import { SharedModule } from './shared/shared.module';
     UploadModule,
     WechatModule,
     PaymentModule,
+    RefundModule,
+    NotifyModule,
     LineModule,
     StationModule,
     TicketScheduleModule,

@@ -4,6 +4,27 @@
 
 **登记规则**：每次改动必须在此登记——含用户可见变化的改动递增版本号（新能力 → 次版本号，修复 → 修订号），纯内部调整并入当前版本的「变更」组；条目按类型分组（新增/变更/修复/移除/安全），新版本在最上方。写法约束见 `docs/adr/010-changelog.md`。
 
+## [1.6.0] - 2026-11-14
+
+### 新增
+
+- 乘客自助退票：订单详情页按票多选退票，提交前明示手续费档位与到账金额（发车前 ≥24h 全额 / 2h–24h 收 5% / <2h 停退，规则收敛于 `@sanqin/shared`）；退款单（Refund）微信原路退回，票 REFUNDING 冻结防并发核销/重复退款，回调成功后票 REFUNDED + 释放库存 + 订单聚合 PARTIALLY_REFUNDED/REFUNDED；REST `POST /orders/:id/refund-quote`、`POST /orders/:id/refunds`
+- 管理端整单退款（已支付订单取消）：订单详情页「整单退款」二次确认 + 原因，未核销票全额退（手续费 0）；CLOSED 但已支付的订单全额退支付金额且订单保持 CLOSED；退款记录 Tab 支持FAILED 重试（out_refund_no 幂等）与微信侧状态查询对账，每小时兜底对账 PROCESSING 超 30 分钟退款单；权限 `order:refund`（seed p82）
+- 改签：乘客改签选班次页（日期切换 + 可改班次余票/差价展示）与管理端整单改签；每单限一次、发车前 2h 窗口、仅同线路同价或低价方向（差价自动原路退回）、改签新票 changedAt 打标不可再退再改；旧票 CANCELLED + 原班次释放库存 + 新班次原子锁库存 + 订单随新班次（二维码有效期按新发车时刻）；权限 `order:change`（seed p83）
+- 超时竞态自动退款：CLOSED 订单支付回调到账时自动全额退款（原 P0 人工口升级，`AUTO_REFUND_ENABLED` 默认开），自动退款单 operatorType=SYSTEM
+- 管理端日报表页 `/reports/daily`：按支付完成日逐日聚合订单数/票数/支付金额，退款金额按退款完成日（仅 SUCCESS），输出净额与合计，区间 ≤92 天；`dashboard.daily` tRPC + 菜单「日报表」
+- 微信订阅消息：出票通知（支付成功后发送）+ 发车提醒（每 10 分钟扫 30 分钟内发车班次，按订单聚合，用户未订阅 43101 同样去重）；Settings 新增 subscribe 组（`SUBSCRIBE_ENABLED` + 两模板 ID），未配置全链路无感降级；小程序支付成功后弹订阅授权，车票页新增「发车提醒」入口；`GET /api/subscribe/templates` 下发模板配置
+
+### 变更
+
+- 订单/票/支付状态机扩展（String 注释值，无 DDL）：Ticket + REFUNDING/REFUNDED；Order.payStatus + REFUNDING/PARTIAL_REFUND/REFUNDED（金额口径）；Order.orderStatus + REFUNDING/PARTIALLY_REFUNDED/REFUNDED（票口径，改签差价退款不改订单业务态）；车票页「待出行」Tab 含退款中间态订单
+- 电子票页：二维码仅对未使用票展示；退款中/已退款/改签票展示状态标签（改签票紫色「改签」角标）；订单页/车票页状态标签扩展
+- 退款回调端点业务落地（原空壳）：验签解密后接 RefundService.handleRefundResult（幂等，失败返回 500 让微信重投）；新增 `WechatPayService.queryRefund`
+
+### 修复
+
+- 集成测试库 `sanqin_bus_test` 迁移残留元数据（failed 记录）导致 `prisma migrate dev` 误判需要 reset——清理 `_prisma_migrations` 残留行；本地 API 缺 `AI_ENCRYPTION_KEY` 启动失败——已补入 `apps/api/.env`
+
 ## [1.5.0] - 2026-11-13
 
 ### 新增

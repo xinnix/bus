@@ -20,6 +20,9 @@ const STATUS_LABELS: Record<string, string> = {
   PENDING_PAYMENT: '待支付',
   PAID: '待出行',
   COMPLETED: '已完成',
+  REFUNDING: '退款中',
+  PARTIALLY_REFUNDED: '部分退款',
+  REFUNDED: '已退款',
   CLOSED: '已关闭',
 };
 

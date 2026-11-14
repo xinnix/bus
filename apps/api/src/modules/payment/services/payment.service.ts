@@ -1,11 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { NotifyService } from '../../notify/notify.service';
 
 @Injectable()
 export class PaymentService {
   private readonly logger = new Logger(PaymentService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifyService: NotifyService,
+  ) {}
 
   /**
    * 创建或复用待支付记录。
@@ -127,12 +131,17 @@ export class PaymentService {
     });
 
     // 竞态兜底：回调到达前订单刚被超时任务关闭。钱已收、票已取消，
-    // 记录支付流水留痕（不重开订单），交由人工/退款流程（P0.5）处理。
+    // 记录支付流水留痕（不重开订单），自动全额退款（P0.5，见 payment.controller 回调侧）。
     if (orderUpdated === 0 && order.orderStatus === 'CLOSED') {
       this.logger.error(
         `支付成功但订单已关闭（超时竞态） order=${order.id} tx=${payload.transactionId} amount=${payload.amount}，需退款处理`,
       );
       return { handled: true, orderClosed: true };
+    }
+
+    // P0.5 出票通知（best-effort，内部吞错，不影支付主链路）
+    if (orderUpdated > 0) {
+      await this.notifyService.notifyPaid(order.id);
     }
 
     return { handled: true, idempotent: false };

@@ -11,12 +11,14 @@ import {
   ServiceUnavailableException,
   UseGuards,
 } from '@nestjs/common';
+import { z } from 'zod';
 import { CreateOrderSchema } from '@sanqin/shared';
 import { CurrentUser } from '../auth/decorators/decorators';
 import { JwtAuthGuard } from '../../core/guards/jwt.guard';
 import { OrderService } from './order.service';
 import { PaymentService } from '../payment/services/payment.service';
 import { WechatPayService } from '../payment/services/wechat-pay.service';
+import { RefundService } from '../refund/refund.service';
 import { WxacodeService } from '../wechat/wxacode.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { createTicketToken } from './ticket-token';
@@ -29,6 +31,7 @@ export class OrderController {
     private readonly prisma: PrismaService,
     private readonly wechatPayService: WechatPayService,
     private readonly paymentService: PaymentService,
+    private readonly refundService: RefundService,
     private readonly wxacodeService: WxacodeService,
   ) {}
 
@@ -119,6 +122,76 @@ export class OrderController {
     });
     const payParams = this.wechatPayService.getPayParams(prepayId);
     return { success: true, data: { paymentNo: payment.paymentNo, ...payParams } };
+  }
+
+  // ====================
+  // P0.5 退票 / 改签（乘客自助，userId 数据隔离）
+  // ====================
+
+  /** 退款报价：手续费档位与到账金额（提交前展示用） */
+  @Post(':id/refund-quote')
+  async refundQuote(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @Body() body: { ticketIds?: unknown },
+  ) {
+    const ticketIds = z.array(z.string().min(1)).min(1, '请选择要退的票').parse(body?.ticketIds);
+    return {
+      success: true,
+      data: await this.refundService.quote({ orderId: id, ticketIds, userId: user.id }),
+    };
+  }
+
+  /** 申请退票：冻结票 + 微信原路退款（异步，结果以退款单状态为准） */
+  @Post(':id/refunds')
+  async requestRefund(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @Body() body: { ticketIds?: unknown; reason?: unknown },
+  ) {
+    const input = z
+      .object({
+        ticketIds: z.array(z.string().min(1)).min(1, '请选择要退的票'),
+        reason: z.string().max(200).optional(),
+      })
+      .parse(body);
+    return {
+      success: true,
+      data: await this.refundService.request({
+        orderId: id,
+        ticketIds: input.ticketIds,
+        reason: input.reason,
+        userId: user.id,
+        operatorType: 'USER',
+      }),
+    };
+  }
+
+  /** 退款流水（乘客端退款进度展示） */
+  @Get(':id/refunds')
+  async listRefunds(@CurrentUser() user: any, @Param('id') id: string) {
+    const order = await this.orderService.getUserOrder(user.id, id);
+    return {
+      success: true,
+      data: await this.refundService.listByOrder(order.id),
+    };
+  }
+
+  /** 改签：整单改到同线路新班次（仅一次，差价自动原路退回） */
+  @Post(':id/change')
+  async changeTrip(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @Body() body: { newTripId?: unknown },
+  ) {
+    const input = z.object({ newTripId: z.string().min(1) }).parse(body);
+    return {
+      success: true,
+      data: await this.orderService.changeTrip(
+        { orderId: id, newTripId: input.newTripId },
+        { operatorType: 'USER', userId: user.id },
+      ),
+    };
   }
 }
 

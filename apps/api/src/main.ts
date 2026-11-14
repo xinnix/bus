@@ -9,6 +9,8 @@ import { AllExceptionsFilter } from './core/filters/http-exception.filter';
 import { PrismaService } from './prisma/prisma.service';
 import { FileStorageService } from './shared/services/file-storage.service';
 import { SettingsService } from './shared/settings/settings.service';
+import { RefundService } from './modules/refund/refund.service';
+import { setRefundService } from './modules/refund/refund.bridge';
 import { appRouter } from './trpc/app.router';
 import { router as createTrpcRouter } from './trpc/trpc';
 import { AI_TRPC_ROUTERS } from './modules/ai/module';
@@ -112,6 +114,9 @@ async function bootstrap() {
   const settingsService = app.get(SettingsService);
   setSettingsService(settingsService);
   await settingsService.reload().catch(() => undefined);
+
+  // 退款服务桥：PaymentModule 回调与 tRPC 管理端过程经此获取（避免模块循环依赖）
+  setRefundService(app.get(RefundService));
 
   setAppInstance(app);
 
